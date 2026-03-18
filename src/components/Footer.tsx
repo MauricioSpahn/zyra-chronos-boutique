@@ -19,13 +19,8 @@ const Footer = () => {
             Navegación
           </span>
           <ul className="mt-4 space-y-3">
-            {["Colección", "Sobre Zyra", "Contacto"].map((item) => (
-              <li key={item}>
-                <a href="#" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">
-                  {item}
-                </a>
-              </li>
-            ))}
+            <li><Link to="/" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Colección</Link></li>
+            <li><Link to="/contacto" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Contacto</Link></li>
           </ul>
         </div>
 

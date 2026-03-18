@@ -20,8 +20,8 @@ const Header = () => {
             <Link to="/" className="font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors duration-150">
               Colección
             </Link>
-            <Link to="/" className="font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors duration-150">
-              Sobre Zyra
+            <Link to="/contacto" className="font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors duration-150">
+              Contacto
             </Link>
           </nav>
 

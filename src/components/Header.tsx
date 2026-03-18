@@ -2,9 +2,11 @@ import { ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import CartDrawer from "./CartDrawer";
+import { useCart } from "@/contexts/CartContext";
 
 const Header = () => {
   const [cartOpen, setCartOpen] = useState(false);
+  const { totalItems } = useCart();
 
   return (
     <>
@@ -29,6 +31,11 @@ const Header = () => {
             aria-label="Abrir carrito"
           >
             <ShoppingBag size={20} strokeWidth={1.5} />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-accent text-accent-foreground font-mono text-[9px] tabular-nums">
+                {totalItems}
+              </span>
+            )}
           </button>
         </div>
       </header>

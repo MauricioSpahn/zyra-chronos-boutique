@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
-type PaymentMethod = "card" | "mercadopago";
+// Payment is handled entirely by Mercado Pago (cards + wallet + transfers)
 
 interface ShippingForm {
   firstName: string;
@@ -47,7 +47,6 @@ const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
   const navigate = useNavigate();
   const [form, setForm] = useState<ShippingForm>(INITIAL_FORM);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -91,7 +90,7 @@ const Checkout = () => {
           state: form.state.trim(),
           postal_code: form.postalCode.trim(),
           country: form.country,
-          payment_method: paymentMethod,
+          payment_method: "mercadopago",
           subtotal: totalPrice,
           shipping_cost: shippingCost,
           total,
@@ -114,45 +113,43 @@ const Checkout = () => {
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
       if (itemsError) throw itemsError;
 
-      // 3. If Mercado Pago, create preference and redirect
-      if (paymentMethod === "mercadopago") {
-        const currentOrigin = window.location.origin;
-        const { data: mpData, error: mpError } = await supabase.functions.invoke(
-          "create-mp-preference",
-          {
-            body: {
-              order_id: order.id,
-              items: items.map((item) => ({
-                title: item.name,
-                quantity: item.quantity,
-                unit_price: item.price,
-              })),
-              payer: {
-                email: form.email.trim(),
-                first_name: form.firstName.trim(),
-                last_name: form.lastName.trim(),
-              },
-              back_urls: {
-                success: `${currentOrigin}/checkout?status=approved&order=${orderNum}`,
-                failure: `${currentOrigin}/checkout?status=failure&order=${orderNum}`,
-                pending: `${currentOrigin}/checkout?status=pending&order=${orderNum}`,
-              },
+      // 3. Create Mercado Pago preference and redirect (handles both card and MP wallet)
+      const currentOrigin = window.location.origin;
+      const { data: mpData, error: mpError } = await supabase.functions.invoke(
+        "create-mp-preference",
+        {
+          body: {
+            order_id: order.id,
+            items: items.map((item) => ({
+              title: item.name,
+              quantity: item.quantity,
+              unit_price: item.price,
+            })),
+            payer: {
+              email: form.email.trim(),
+              first_name: form.firstName.trim(),
+              last_name: form.lastName.trim(),
             },
-          }
-        );
-
-        if (mpError) throw mpError;
-
-        // Redirect to MercadoPago checkout
-        const redirectUrl = mpData.init_point || mpData.sandbox_init_point;
-        if (redirectUrl) {
-          clearCart();
-          window.location.href = redirectUrl;
-          return;
+            back_urls: {
+              success: `${currentOrigin}/checkout?status=approved&order=${orderNum}`,
+              failure: `${currentOrigin}/checkout?status=failure&order=${orderNum}`,
+              pending: `${currentOrigin}/checkout?status=pending&order=${orderNum}`,
+            },
+          },
         }
+      );
+
+      if (mpError) throw mpError;
+
+      // Redirect to MercadoPago checkout (supports cards + wallet + transfers)
+      const redirectUrl = mpData.init_point || mpData.sandbox_init_point;
+      if (redirectUrl) {
+        clearCart();
+        window.location.href = redirectUrl;
+        return;
       }
 
-      // 4. For card payments (or if MP didn't redirect), show confirmation
+      // Fallback if redirect URL not available
       setOrderNumber(orderNum);
       setOrderComplete(true);
       clearCart();
@@ -344,57 +341,28 @@ const Checkout = () => {
 
           <Separator className="bg-foreground/[0.08]" />
 
-          {/* Payment method */}
+          {/* Payment info */}
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.2 }}
           >
             <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">
-              Método de pago
+              Pago seguro
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("card")}
-                className={`flex items-center gap-4 p-5 border transition-colors duration-150 ${
-                  paymentMethod === "card"
-                    ? "border-accent bg-accent/5"
-                    : "border-foreground/[0.08] hover:border-foreground/20"
-                }`}
-              >
-                <CreditCard size={20} strokeWidth={1.5} className={paymentMethod === "card" ? "text-accent" : "text-muted-foreground"} />
-                <div className="text-left">
-                  <p className="font-sans text-sm text-foreground">Tarjeta de crédito / débito</p>
-                  <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Visa, Mastercard, AMEX</p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("mercadopago")}
-                className={`flex items-center gap-4 p-5 border transition-colors duration-150 ${
-                  paymentMethod === "mercadopago"
-                    ? "border-accent bg-accent/5"
-                    : "border-foreground/[0.08] hover:border-foreground/20"
-                }`}
-              >
-                <Wallet size={20} strokeWidth={1.5} className={paymentMethod === "mercadopago" ? "text-accent" : "text-muted-foreground"} />
-                <div className="text-left">
-                  <p className="font-sans text-sm text-foreground">Mercado Pago</p>
-                  <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Saldo, transferencia, cuotas</p>
-                </div>
-              </button>
-            </div>
-            {paymentMethod === "mercadopago" && (
-              <p className="mt-4 font-mono text-[10px] text-accent">
+            <div className="p-5 border border-foreground/[0.08] bg-secondary/20 space-y-3">
+              <div className="flex items-center gap-3">
+                <CreditCard size={20} strokeWidth={1.5} className="text-accent" />
+                <Wallet size={20} strokeWidth={1.5} className="text-accent" />
+                <p className="font-sans text-sm text-foreground">Procesado por Mercado Pago</p>
+              </div>
+              <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+                Acepta tarjetas de crédito y débito (Visa, Mastercard, AMEX), saldo de Mercado Pago, transferencias bancarias y cuotas sin interés.
+              </p>
+              <p className="font-mono text-[10px] text-accent">
                 Serás redirigido a Mercado Pago para completar el pago de forma segura.
               </p>
-            )}
-            {paymentMethod === "card" && (
-              <p className="mt-4 font-mono text-[10px] text-muted-foreground/60">
-                El cobro con tarjeta se habilitará próximamente. Tu pedido quedará registrado como pendiente.
-              </p>
-            )}
+            </div>
           </motion.section>
         </div>
 
@@ -459,10 +427,8 @@ const Checkout = () => {
                   <Loader2 size={14} className="animate-spin" />
                   Procesando...
                 </>
-              ) : paymentMethod === "mercadopago" ? (
-                "Pagar con Mercado Pago"
               ) : (
-                "Confirmar pedido"
+                "Pagar con Mercado Pago"
               )}
             </button>
 

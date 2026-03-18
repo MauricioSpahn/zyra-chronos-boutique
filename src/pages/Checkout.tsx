@@ -427,10 +427,8 @@ const Checkout = () => {
                   <Loader2 size={14} className="animate-spin" />
                   Procesando...
                 </>
-              ) : paymentMethod === "mercadopago" ? (
-                "Pagar con Mercado Pago"
               ) : (
-                "Confirmar pedido"
+                "Pagar con Mercado Pago"
               )}
             </button>
 

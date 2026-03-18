@@ -90,7 +90,7 @@ const Checkout = () => {
           state: form.state.trim(),
           postal_code: form.postalCode.trim(),
           country: form.country,
-          payment_method: paymentMethod,
+          payment_method: "mercadopago",
           subtotal: totalPrice,
           shipping_cost: shippingCost,
           total,

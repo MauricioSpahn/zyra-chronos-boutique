@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar,
+  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar, CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,6 +13,7 @@ interface Order {
   payment_method: string; payment_status: string; payment_reference: string | null;
   subtotal: number; shipping_cost: number; total: number;
   created_at: string; updated_at: string;
+  managed_by_name?: string; delivered_at?: string;
 }
 interface OrderItem {
   id: string; product_name: string; product_reference: string | null;
@@ -25,9 +26,14 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: "Entregado", cancelled: "Cancelado",
 };
 
-interface Props { inputClass: string; }
+interface Props {
+  inputClass: string;
+  adminUserId: string;
+  adminName: string;
+  onAuditLog: (action: string, entityType: string, entityId?: string, details?: Record<string, any>) => Promise<void>;
+}
 
-const AdminOrdersDB = ({ inputClass }: Props) => {
+const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -69,11 +75,20 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
   };
 
   const updateStatus = async (orderId: string, status: string) => {
-    const { error } = await supabase.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", orderId);
+    const updateData: any = { status, updated_at: new Date().toISOString(), managed_by: adminUserId, managed_by_name: adminName };
+    if (status === "delivered") {
+      updateData.delivered_at = new Date().toISOString();
+    }
+    const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
     if (error) { toast.error(error.message); return; }
+
+    const order = orders.find(o => o.id === orderId);
+    const auditAction = status === "delivered" ? "mark_delivered" : "update_order_status";
+    await onAuditLog(auditAction, "order", order?.order_number || orderId, { status, admin: adminName });
+
     toast.success(`Estado: ${STATUS_LABELS[status]}`);
     fetchOrders();
-    if (selectedOrder?.id === orderId) setSelectedOrder(prev => prev ? { ...prev, status } : null);
+    if (selectedOrder?.id === orderId) setSelectedOrder(prev => prev ? { ...prev, status, managed_by_name: adminName, delivered_at: status === "delivered" ? new Date().toISOString() : prev.delivered_at } : null);
   };
 
   const filtered = orders.filter((o) => {
@@ -89,7 +104,7 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
 
   // Export CSV
   const exportCSV = () => {
-    const headers = ["Nº Orden", "Fecha", "Cliente", "Email", "Teléfono", "Dirección", "Ciudad", "Estado", "CP", "Método pago", "Estado pago", "Estado pedido", "Subtotal", "Envío", "Total"];
+    const headers = ["Nº Orden", "Fecha", "Cliente", "Email", "Teléfono", "Dirección", "Ciudad", "Estado", "CP", "Método pago", "Estado pago", "Estado pedido", "Subtotal", "Envío", "Total", "Gestionado por", "Entregado"];
     const rows = filtered.map(o => [
       o.order_number,
       new Date(o.created_at).toLocaleString("es-MX"),
@@ -97,6 +112,7 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
       o.email, o.phone || "", o.address_line1, o.city, o.state, o.postal_code,
       o.payment_method, o.payment_status, STATUS_LABELS[o.status] || o.status,
       o.subtotal, o.shipping_cost, o.total,
+      o.managed_by_name || "", o.delivered_at ? new Date(o.delivered_at).toLocaleString("es-MX") : "",
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
@@ -121,12 +137,13 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
         <td>${o.email}</td>
         <td>${STATUS_LABELS[o.status]}</td>
         <td style="text-align:right">$${o.total.toLocaleString()}</td>
+        <td>${o.managed_by_name || "-"}</td>
       </tr>`).join("");
     printWindow.document.write(`
       <html><head><title>Pedidos ZYRA</title>
       <style>body{font-family:monospace;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px 8px;font-size:11px}th{background:#222;color:#fff;text-align:left}h1{font-size:16px;letter-spacing:4px}</style></head>
       <body><h1>ZYRA — PEDIDOS</h1><p>Generado: ${new Date().toLocaleString("es-MX")} · ${filtered.length} pedidos</p>
-      <table><thead><tr><th>Orden</th><th>Fecha</th><th>Cliente</th><th>Email</th><th>Estado</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+      <table><thead><tr><th>Orden</th><th>Fecha</th><th>Cliente</th><th>Email</th><th>Estado</th><th>Total</th><th>Gestionado por</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
     printWindow.document.close();
     printWindow.print();
   };
@@ -156,7 +173,8 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
       postal_code: mPostal || "00000",
       subtotal, shipping_cost: 0, total: subtotal,
       payment_method: "manual", payment_status: "paid", status: "confirmed",
-    }).select().single();
+      managed_by: adminUserId, managed_by_name: adminName,
+    } as any).select().single();
 
     if (orderErr || !orderData) { toast.error(orderErr?.message || "Error"); setMSaving(false); return; }
 
@@ -173,6 +191,7 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
     if (itemsErr) toast.error(itemsErr.message);
     else {
       toast.success(`Pedido ${orderNumber} creado`);
+      await onAuditLog("create_manual_order", "order", orderNumber, { total: subtotal, admin: adminName });
       setShowManual(false);
       resetManualForm();
       fetchOrders();
@@ -198,10 +217,25 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
             <div>
               <p className="font-mono text-base md:text-lg text-foreground">{selectedOrder.order_number}</p>
               <p className="font-mono text-[10px] text-muted-foreground mt-1">{new Date(selectedOrder.created_at).toLocaleString("es-MX")}</p>
+              {selectedOrder.managed_by_name && (
+                <p className="font-mono text-[10px] text-accent mt-1">Gestionado por: {selectedOrder.managed_by_name}</p>
+              )}
+              {selectedOrder.delivered_at && (
+                <p className="font-mono text-[10px] text-accent mt-1 flex items-center gap-1">
+                  <CheckCircle2 size={10} /> Entregado: {new Date(selectedOrder.delivered_at).toLocaleString("es-MX")}
+                </p>
+              )}
             </div>
-            <select value={selectedOrder.status} onChange={(e) => updateStatus(selectedOrder.id, e.target.value)} className={inputClass + " !w-full sm:!w-auto"}>
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-            </select>
+            <div className="flex flex-col gap-2">
+              <select value={selectedOrder.status} onChange={(e) => updateStatus(selectedOrder.id, e.target.value)} className={inputClass + " !w-full sm:!w-auto"}>
+                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+              </select>
+              {selectedOrder.status !== "delivered" && (
+                <button onClick={() => updateStatus(selectedOrder.id, "delivered")} className="h-10 px-4 bg-accent text-accent-foreground font-sans text-[10px] uppercase tracking-[0.15em] hover:bg-accent/80 transition-colors flex items-center justify-center gap-2">
+                  <CheckCircle2 size={14} /> Marcar entregado
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -306,7 +340,6 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
             </button>
           </div>
 
-          {/* Preview total */}
           <div className="text-right">
             <p className="font-mono text-lg text-foreground tabular-nums">
               Total: ${mItems.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.qty || 1), 0).toLocaleString()}
@@ -389,19 +422,22 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
                   <span className="font-mono text-[10px] text-muted-foreground">{new Date(order.created_at).toLocaleDateString("es-MX")}</span>
                   <span className="font-mono text-sm tabular-nums text-foreground">${order.total.toLocaleString()}</span>
                 </div>
+                {order.managed_by_name && (
+                  <p className="font-mono text-[10px] text-accent">Por: {order.managed_by_name}</p>
+                )}
               </button>
             ))}
           </div>
 
           {/* Desktop table */}
           <div className="hidden md:block border border-foreground/[0.08] overflow-x-auto">
-            <div className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] bg-secondary/30 min-w-[700px]">
-              {["Orden", "Cliente", "Email", "Fecha", "Total", "Estado", ""].map((h) => (
+            <div className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] bg-secondary/30 min-w-[800px]">
+              {["Orden", "Cliente", "Email", "Fecha", "Total", "Estado", "Admin", ""].map((h) => (
                 <span key={h} className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{h}</span>
               ))}
             </div>
             {filtered.map((order) => (
-              <div key={order.id} className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] last:border-b-0 items-center min-w-[700px]">
+              <div key={order.id} className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] last:border-b-0 items-center min-w-[800px]">
                 <span className="font-mono text-xs text-foreground">{order.order_number}</span>
                 <span className="font-sans text-sm text-foreground truncate">{order.first_name} {order.last_name}</span>
                 <span className="font-mono text-[10px] text-muted-foreground truncate">{order.email}</span>
@@ -414,6 +450,7 @@ const AdminOrdersDB = ({ inputClass }: Props) => {
                 >
                   {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                 </select>
+                <span className="font-mono text-[10px] text-accent truncate">{order.managed_by_name || "-"}</span>
                 <button onClick={() => viewDetails(order)} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
                   <Eye size={14} />
                 </button>

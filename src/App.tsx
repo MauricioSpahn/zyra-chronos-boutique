@@ -9,6 +9,7 @@ import ProductDetail from "./pages/ProductDetail.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import Checkout from "./pages/Checkout.tsx";
+import Contact from "./pages/Contact.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/producto/:id" element={<ProductDetail />} />
+            <Route path="/contacto" element={<Contact />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/checkout" element={<Checkout />} />

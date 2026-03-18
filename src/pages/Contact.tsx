@@ -23,7 +23,7 @@ const Contact = () => {
   useEffect(() => {
     const fetch = async () => {
       const { data } = await supabase.from("site_settings").select("value").eq("key", "contact").maybeSingle();
-      if (data) setContact(data.value as ContactData);
+      if (data) setContact(data.value as unknown as ContactData);
     };
     fetch();
   }, []);

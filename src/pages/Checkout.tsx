@@ -114,45 +114,43 @@ const Checkout = () => {
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
       if (itemsError) throw itemsError;
 
-      // 3. If Mercado Pago, create preference and redirect
-      if (paymentMethod === "mercadopago") {
-        const currentOrigin = window.location.origin;
-        const { data: mpData, error: mpError } = await supabase.functions.invoke(
-          "create-mp-preference",
-          {
-            body: {
-              order_id: order.id,
-              items: items.map((item) => ({
-                title: item.name,
-                quantity: item.quantity,
-                unit_price: item.price,
-              })),
-              payer: {
-                email: form.email.trim(),
-                first_name: form.firstName.trim(),
-                last_name: form.lastName.trim(),
-              },
-              back_urls: {
-                success: `${currentOrigin}/checkout?status=approved&order=${orderNum}`,
-                failure: `${currentOrigin}/checkout?status=failure&order=${orderNum}`,
-                pending: `${currentOrigin}/checkout?status=pending&order=${orderNum}`,
-              },
+      // 3. Create Mercado Pago preference and redirect (handles both card and MP wallet)
+      const currentOrigin = window.location.origin;
+      const { data: mpData, error: mpError } = await supabase.functions.invoke(
+        "create-mp-preference",
+        {
+          body: {
+            order_id: order.id,
+            items: items.map((item) => ({
+              title: item.name,
+              quantity: item.quantity,
+              unit_price: item.price,
+            })),
+            payer: {
+              email: form.email.trim(),
+              first_name: form.firstName.trim(),
+              last_name: form.lastName.trim(),
             },
-          }
-        );
-
-        if (mpError) throw mpError;
-
-        // Redirect to MercadoPago checkout
-        const redirectUrl = mpData.init_point || mpData.sandbox_init_point;
-        if (redirectUrl) {
-          clearCart();
-          window.location.href = redirectUrl;
-          return;
+            back_urls: {
+              success: `${currentOrigin}/checkout?status=approved&order=${orderNum}`,
+              failure: `${currentOrigin}/checkout?status=failure&order=${orderNum}`,
+              pending: `${currentOrigin}/checkout?status=pending&order=${orderNum}`,
+            },
+          },
         }
+      );
+
+      if (mpError) throw mpError;
+
+      // Redirect to MercadoPago checkout (supports cards + wallet + transfers)
+      const redirectUrl = mpData.init_point || mpData.sandbox_init_point;
+      if (redirectUrl) {
+        clearCart();
+        window.location.href = redirectUrl;
+        return;
       }
 
-      // 4. For card payments (or if MP didn't redirect), show confirmation
+      // Fallback if redirect URL not available
       setOrderNumber(orderNum);
       setOrderComplete(true);
       clearCart();

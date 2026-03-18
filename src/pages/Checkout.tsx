@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
-type PaymentMethod = "card" | "mercadopago";
+// Payment is handled entirely by Mercado Pago (cards + wallet + transfers)
 
 interface ShippingForm {
   firstName: string;

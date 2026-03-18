@@ -76,6 +76,7 @@ const Checkout = () => {
     try {
       const orderNum = generateOrderNumber();
 
+      // 1. Create order in DB
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -100,6 +101,7 @@ const Checkout = () => {
 
       if (orderError) throw orderError;
 
+      // 2. Insert order items
       const orderItems = items.map((item) => ({
         order_id: order.id,
         product_name: item.name,
@@ -112,6 +114,45 @@ const Checkout = () => {
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
       if (itemsError) throw itemsError;
 
+      // 3. If Mercado Pago, create preference and redirect
+      if (paymentMethod === "mercadopago") {
+        const currentOrigin = window.location.origin;
+        const { data: mpData, error: mpError } = await supabase.functions.invoke(
+          "create-mp-preference",
+          {
+            body: {
+              order_id: order.id,
+              items: items.map((item) => ({
+                title: item.name,
+                quantity: item.quantity,
+                unit_price: item.price,
+              })),
+              payer: {
+                email: form.email.trim(),
+                first_name: form.firstName.trim(),
+                last_name: form.lastName.trim(),
+              },
+              back_urls: {
+                success: `${currentOrigin}/checkout?status=approved&order=${orderNum}`,
+                failure: `${currentOrigin}/checkout?status=failure&order=${orderNum}`,
+                pending: `${currentOrigin}/checkout?status=pending&order=${orderNum}`,
+              },
+            },
+          }
+        );
+
+        if (mpError) throw mpError;
+
+        // Redirect to MercadoPago checkout
+        const redirectUrl = mpData.init_point || mpData.sandbox_init_point;
+        if (redirectUrl) {
+          clearCart();
+          window.location.href = redirectUrl;
+          return;
+        }
+      }
+
+      // 4. For card payments (or if MP didn't redirect), show confirmation
       setOrderNumber(orderNum);
       setOrderComplete(true);
       clearCart();
@@ -122,6 +163,53 @@ const Checkout = () => {
       setLoading(false);
     }
   };
+
+  // Check for MP return params
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnStatus = urlParams.get("status");
+  const returnOrder = urlParams.get("order");
+
+  if (returnStatus && returnOrder) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
+          className="text-center max-w-md"
+        >
+          <CheckCircle
+            className={`mx-auto mb-6 ${returnStatus === "approved" ? "text-accent" : "text-muted-foreground"}`}
+            size={48}
+            strokeWidth={1}
+          />
+          <h1 className="font-mono text-2xl tracking-tight text-foreground">
+            {returnStatus === "approved"
+              ? "Pago aprobado"
+              : returnStatus === "pending"
+              ? "Pago pendiente"
+              : "Pago no procesado"}
+          </h1>
+          <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            {returnOrder}
+          </p>
+          <p className="mt-6 font-sans text-sm text-muted-foreground leading-relaxed">
+            {returnStatus === "approved"
+              ? "Tu pago fue procesado exitosamente. Recibirás un correo con los detalles."
+              : returnStatus === "pending"
+              ? "Tu pago está pendiente de confirmación. Te notificaremos cuando se acredite."
+              : "Hubo un problema con tu pago. Puedes intentar de nuevo o elegir otro método."}
+          </p>
+          <Link
+            to="/"
+            className="inline-block mt-8 h-12 px-8 leading-[3rem] bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
+          >
+            Volver a la tienda
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (items.length === 0 && !orderComplete) {
     return (
@@ -154,10 +242,10 @@ const Checkout = () => {
             {orderNumber}
           </p>
           <p className="mt-6 font-sans text-sm text-muted-foreground leading-relaxed">
-            Recibirás un correo de confirmación en <span className="text-foreground">{form.email}</span> con los detalles de tu pedido y seguimiento de envío.
+            Recibirás un correo de confirmación en <span className="text-foreground">{form.email}</span> con los detalles de tu pedido.
           </p>
           <p className="mt-4 font-sans text-xs text-muted-foreground">
-            El pago será procesado cuando conectemos la pasarela de pagos.
+            Para tarjetas de crédito/débito, el cobro se procesará al integrar la pasarela de pagos con tarjeta.
           </p>
           <Link
             to="/"
@@ -172,7 +260,6 @@ const Checkout = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="h-16 border-b border-foreground/[0.08] flex items-center px-6 md:px-12">
         <Link
           to="/"
@@ -200,49 +287,20 @@ const Checkout = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Nombre *
-                </Label>
-                <Input
-                  value={form.firstName}
-                  onChange={(e) => updateField("firstName", e.target.value)}
-                  className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                  required
-                />
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Nombre *</Label>
+                <Input value={form.firstName} onChange={(e) => updateField("firstName", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" required />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Apellido *
-                </Label>
-                <Input
-                  value={form.lastName}
-                  onChange={(e) => updateField("lastName", e.target.value)}
-                  className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                  required
-                />
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Apellido *</Label>
+                <Input value={form.lastName} onChange={(e) => updateField("lastName", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" required />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Email *
-                </Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => updateField("email", e.target.value)}
-                  className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                  required
-                />
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Email *</Label>
+                <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" required />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Teléfono
-                </Label>
-                <Input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => updateField("phone", e.target.value)}
-                  className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                />
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Teléfono</Label>
+                <Input type="tel" value={form.phone} onChange={(e) => updateField("phone", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" />
               </div>
             </div>
           </motion.section>
@@ -260,60 +318,25 @@ const Checkout = () => {
             </h2>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Dirección *
-                </Label>
-                <Input
-                  value={form.addressLine1}
-                  onChange={(e) => updateField("addressLine1", e.target.value)}
-                  placeholder="Calle y número"
-                  className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                  required
-                />
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Dirección *</Label>
+                <Input value={form.addressLine1} onChange={(e) => updateField("addressLine1", e.target.value)} placeholder="Calle y número" className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" required />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Apartamento, suite, etc.
-                </Label>
-                <Input
-                  value={form.addressLine2}
-                  onChange={(e) => updateField("addressLine2", e.target.value)}
-                  className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                />
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Apartamento, suite, etc.</Label>
+                <Input value={form.addressLine2} onChange={(e) => updateField("addressLine2", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    Ciudad *
-                  </Label>
-                  <Input
-                    value={form.city}
-                    onChange={(e) => updateField("city", e.target.value)}
-                    className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                    required
-                  />
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Ciudad *</Label>
+                  <Input value={form.city} onChange={(e) => updateField("city", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" required />
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    Estado *
-                  </Label>
-                  <Input
-                    value={form.state}
-                    onChange={(e) => updateField("state", e.target.value)}
-                    className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                    required
-                  />
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Estado *</Label>
+                  <Input value={form.state} onChange={(e) => updateField("state", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" required />
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    C.P. *
-                  </Label>
-                  <Input
-                    value={form.postalCode}
-                    onChange={(e) => updateField("postalCode", e.target.value)}
-                    className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12"
-                    required
-                  />
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">C.P. *</Label>
+                  <Input value={form.postalCode} onChange={(e) => updateField("postalCode", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-12" required />
                 </div>
               </div>
             </div>
@@ -362,9 +385,16 @@ const Checkout = () => {
                 </div>
               </button>
             </div>
-            <p className="mt-4 font-mono text-[10px] text-muted-foreground/60">
-              Los datos de pago se solicitarán al integrar la pasarela. Tu pedido quedará registrado como pendiente.
-            </p>
+            {paymentMethod === "mercadopago" && (
+              <p className="mt-4 font-mono text-[10px] text-accent">
+                Serás redirigido a Mercado Pago para completar el pago de forma segura.
+              </p>
+            )}
+            {paymentMethod === "card" && (
+              <p className="mt-4 font-mono text-[10px] text-muted-foreground/60">
+                El cobro con tarjeta se habilitará próximamente. Tu pedido quedará registrado como pendiente.
+              </p>
+            )}
           </motion.section>
         </div>
 
@@ -387,9 +417,7 @@ const Checkout = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-sans text-sm text-foreground truncate">{item.name}</p>
-                    <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
-                      Cant: {item.quantity}
-                    </p>
+                    <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Cant: {item.quantity}</p>
                   </div>
                   <p className="font-mono text-sm tabular-nums text-foreground">
                     ${(item.price * item.quantity).toLocaleString()}
@@ -401,9 +429,7 @@ const Checkout = () => {
             <div className="mt-6 space-y-3">
               <div className="flex justify-between">
                 <span className="font-sans text-sm text-muted-foreground">Subtotal</span>
-                <span className="font-mono text-sm tabular-nums text-foreground">
-                  ${totalPrice.toLocaleString()}
-                </span>
+                <span className="font-mono text-sm tabular-nums text-foreground">${totalPrice.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="font-sans text-sm text-muted-foreground">Envío</span>
@@ -420,9 +446,7 @@ const Checkout = () => {
 
             <div className="flex justify-between items-baseline">
               <span className="font-mono text-xs uppercase tracking-[0.2em] text-foreground">Total</span>
-              <span className="font-mono text-2xl tabular-nums text-foreground">
-                ${total.toLocaleString()}
-              </span>
+              <span className="font-mono text-2xl tabular-nums text-foreground">${total.toLocaleString()}</span>
             </div>
 
             <button
@@ -435,6 +459,8 @@ const Checkout = () => {
                   <Loader2 size={14} className="animate-spin" />
                   Procesando...
                 </>
+              ) : paymentMethod === "mercadopago" ? (
+                "Pagar con Mercado Pago"
               ) : (
                 "Confirmar pedido"
               )}

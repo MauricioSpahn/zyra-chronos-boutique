@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, password } = await req.json();
+    const { email, password, firstName, lastName } = await req.json();
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: "Email and password required" }), {
@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Create user
     const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -48,6 +47,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: roleError.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Create admin profile
+    if (firstName || lastName) {
+      await supabaseAdmin.from("admin_profiles").insert({
+        user_id: userData.user.id,
+        first_name: firstName || "",
+        last_name: lastName || "",
       });
     }
 

@@ -1,11 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Package, FolderOpen, Plus, Trash2, Pencil, Home, ShoppingBag, Menu, BarChart3, Upload, X, Image } from "lucide-react";
+import { LogOut, Package, FolderOpen, Plus, Trash2, Pencil, Home, ShoppingBag, Menu, BarChart3, Upload, X, Image, Settings, History, Phone } from "lucide-react";
 import { toast } from "sonner";
 import AdminHeroSlides from "@/components/admin/AdminHeroSlides";
 import AdminAnalytics from "@/components/admin/AdminAnalytics";
 import AdminOrdersDB from "@/components/admin/AdminOrdersDB";
+import AdminAccount from "@/components/admin/AdminAccount";
+import AdminAuditLog from "@/components/admin/AdminAuditLog";
+import AdminContact from "@/components/admin/AdminContact";
 
 interface Category { id: string; name: string; slug: string; }
 interface Product {
@@ -14,7 +17,7 @@ interface Product {
   description: string; specs: Record<string, string>; gallery: string[];
 }
 
-type Tab = "analytics" | "products" | "categories" | "orders" | "homepage";
+type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -25,6 +28,8 @@ const AdminDashboard = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminUserId, setAdminUserId] = useState("");
+  const [adminName, setAdminName] = useState("");
 
   // Category form
   const [catName, setCatName] = useState("");
@@ -52,7 +57,16 @@ const AdminDashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/admin/login"); return; }
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin");
-    if (!roles || roles.length === 0) navigate("/admin/login");
+    if (!roles || roles.length === 0) { navigate("/admin/login"); return; }
+    setAdminUserId(user.id);
+
+    // Fetch admin profile name
+    const { data: profile } = await supabase.from("admin_profiles").select("*").eq("user_id", user.id).maybeSingle();
+    if (profile) {
+      setAdminName(`${(profile as any).first_name || ""} ${(profile as any).last_name || ""}`.trim());
+    } else {
+      setAdminName(user.email || "Admin");
+    }
   };
 
   const fetchData = async () => {
@@ -77,6 +91,18 @@ const AdminDashboard = () => {
   };
 
   const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+  // Audit log helper
+  const logAudit = async (action: string, entityType: string, entityId?: string, details?: Record<string, any>) => {
+    await supabase.from("audit_log").insert({
+      admin_user_id: adminUserId,
+      admin_name: adminName || "Admin",
+      action,
+      entity_type: entityType,
+      entity_id: entityId || null,
+      details: details || {},
+    } as any);
+  };
 
   // Image upload
   const uploadImage = async (file: File, folder = "main"): Promise<string | null> => {
@@ -118,10 +144,12 @@ const AdminDashboard = () => {
     if (editingId) {
       const { error } = await supabase.from("categories").update({ name: catName, slug }).eq("id", editingId);
       if (error) { toast.error(error.message); return; }
+      await logAudit("update_category", "category", editingId, { name: catName });
       toast.success("Categoría actualizada");
     } else {
-      const { error } = await supabase.from("categories").insert({ name: catName, slug });
+      const { data, error } = await supabase.from("categories").insert({ name: catName, slug }).select().single();
       if (error) { toast.error(error.message); return; }
+      await logAudit("create_category", "category", data?.id, { name: catName });
       toast.success("Categoría creada");
     }
     resetForm(); fetchData();
@@ -130,6 +158,7 @@ const AdminDashboard = () => {
   const deleteCategory = async (id: string) => {
     const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
+    await logAudit("delete_category", "category", id);
     toast.success("Categoría eliminada"); fetchData();
   };
 
@@ -149,18 +178,22 @@ const AdminDashboard = () => {
     if (editingId) {
       const { error } = await supabase.from("products").update(payload).eq("id", editingId);
       if (error) { toast.error(error.message); return; }
+      await logAudit("update_product", "product", editingId, { name: prodName });
       toast.success("Producto actualizado");
     } else {
-      const { error } = await supabase.from("products").insert(payload);
+      const { data, error } = await supabase.from("products").insert(payload).select().single();
       if (error) { toast.error(error.message); return; }
+      await logAudit("create_product", "product", data?.id, { name: prodName });
       toast.success("Producto creado");
     }
     resetForm(); fetchData();
   };
 
   const deleteProduct = async (id: string) => {
+    const prod = products.find(p => p.id === id);
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
+    await logAudit("delete_product", "product", id, { name: prod?.name });
     toast.success("Producto eliminado"); fetchData();
   };
 
@@ -181,6 +214,9 @@ const AdminDashboard = () => {
     { key: "products" as Tab, icon: Package, label: "Productos" },
     { key: "categories" as Tab, icon: FolderOpen, label: "Categorías" },
     { key: "homepage" as Tab, icon: Home, label: "Inicio" },
+    { key: "contact" as Tab, icon: Phone, label: "Contacto" },
+    { key: "audit" as Tab, icon: History, label: "Registro" },
+    { key: "account" as Tab, icon: Settings, label: "Cuenta" },
   ];
 
   return (
@@ -194,6 +230,7 @@ const AdminDashboard = () => {
           <Link to="/" className="font-mono text-base md:text-lg tracking-[0.3em] font-semibold text-foreground">ZYRA</Link>
         </div>
         <div className="flex items-center gap-4">
+          {adminName && <span className="font-sans text-xs text-muted-foreground hidden sm:inline">{adminName}</span>}
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent hidden sm:inline">Admin</span>
           <button onClick={logout} className="text-muted-foreground hover:text-foreground transition-colors"><LogOut size={18} strokeWidth={1.5} /></button>
         </div>
@@ -215,7 +252,7 @@ const AdminDashboard = () => {
 
       <div className="px-4 md:px-12 py-6 md:py-8">
         {/* Desktop tabs */}
-        <div className="hidden md:flex gap-6 mb-8 border-b border-foreground/[0.08] overflow-x-auto">
+        <div className="hidden md:flex gap-4 mb-8 border-b border-foreground/[0.08] overflow-x-auto">
           {tabs.map(({ key, icon: Icon, label }) => (
             <button key={key} onClick={() => { setTab(key); resetForm(); }}
               className={`pb-3 font-mono text-xs uppercase tracking-[0.2em] transition-colors border-b-2 whitespace-nowrap ${tab === key ? "border-accent text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
@@ -233,10 +270,19 @@ const AdminDashboard = () => {
         {tab === "analytics" && <AdminAnalytics />}
 
         {/* ORDERS */}
-        {tab === "orders" && <AdminOrdersDB inputClass={inputClass} />}
+        {tab === "orders" && <AdminOrdersDB inputClass={inputClass} adminUserId={adminUserId} adminName={adminName} onAuditLog={logAudit} />}
 
         {/* HOMEPAGE */}
         {tab === "homepage" && <AdminHeroSlides inputClass={inputClass} />}
+
+        {/* CONTACT */}
+        {tab === "contact" && <AdminContact inputClass={inputClass} onAuditLog={logAudit} />}
+
+        {/* AUDIT LOG */}
+        {tab === "audit" && <AdminAuditLog />}
+
+        {/* ACCOUNT */}
+        {tab === "account" && <AdminAccount inputClass={inputClass} adminUserId={adminUserId} onAuditLog={logAudit} />}
 
         {/* PRODUCTS / CATEGORIES */}
         {(tab === "products" || tab === "categories") && (

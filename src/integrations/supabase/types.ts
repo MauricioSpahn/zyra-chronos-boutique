@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_profiles: {
+        Row: {
+          created_at: string
+          first_name: string
+          id: string
+          last_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      audit_log: {
+        Row: {
+          action: string
+          admin_name: string
+          admin_user_id: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          admin_name?: string
+          admin_user_id: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          admin_name?: string
+          admin_user_id?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -107,10 +164,13 @@ export type Database = {
           city: string
           country: string
           created_at: string
+          delivered_at: string | null
           email: string
           first_name: string
           id: string
           last_name: string
+          managed_by: string | null
+          managed_by_name: string | null
           order_number: string
           payment_method: string
           payment_reference: string | null
@@ -130,10 +190,13 @@ export type Database = {
           city: string
           country?: string
           created_at?: string
+          delivered_at?: string | null
           email: string
           first_name: string
           id?: string
           last_name: string
+          managed_by?: string | null
+          managed_by_name?: string | null
           order_number: string
           payment_method?: string
           payment_reference?: string | null
@@ -153,10 +216,13 @@ export type Database = {
           city?: string
           country?: string
           created_at?: string
+          delivered_at?: string | null
           email?: string
           first_name?: string
           id?: string
           last_name?: string
+          managed_by?: string | null
+          managed_by_name?: string | null
           order_number?: string
           payment_method?: string
           payment_reference?: string | null

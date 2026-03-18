@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import ProductGrid from "@/components/ProductGrid";
 import Footer from "@/components/Footer";
+import WhatsAppBubble from "@/components/WhatsAppBubble";
 import { usePageTracking } from "@/hooks/usePageTracking";
 
 const Index = () => {
@@ -15,6 +16,7 @@ const Index = () => {
         <ProductGrid />
       </main>
       <Footer />
+      <WhatsAppBubble />
     </div>
   );
 };

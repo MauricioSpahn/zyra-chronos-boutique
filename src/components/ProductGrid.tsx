@@ -1,22 +1,46 @@
-import { useState, useMemo } from "react";
-import { Search, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Search, X, Loader2 } from "lucide-react";
 import ProductCard from "./ProductCard";
-import { products } from "@/data/products";
+import { supabase } from "@/integrations/supabase/client";
+
+interface DBProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  image_url: string | null;
+  reference: string | null;
+  description: string | null;
+  specs: Record<string, string>;
+  gallery: string[];
+  units_available: number;
+  category_id: string | null;
+}
+
+interface DBCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 const ProductGrid = () => {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [products, setProducts] = useState<DBProduct[]>([]);
+  const [categories, setCategories] = useState<DBCategory[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Extract unique categories from specs (using caseMaterial as a proxy for demo)
-  const categories = useMemo(() => {
-    const types = [
-      { key: "all", label: "Todas" },
-      { key: "diver", label: "Diver" },
-      { key: "classic", label: "Clásico" },
-      { key: "heritage", label: "Heritage" },
-      { key: "stealth", label: "Stealth" },
-    ];
-    return types;
+  useEffect(() => {
+    const fetchData = async () => {
+      const [{ data: prods }, { data: cats }] = await Promise.all([
+        supabase.from("products").select("*").order("created_at", { ascending: false }),
+        supabase.from("categories").select("*").order("name"),
+      ]);
+      setProducts((prods as DBProduct[]) || []);
+      setCategories((cats as DBCategory[]) || []);
+      setLoading(false);
+    };
+    fetchData();
   }, []);
 
   const filtered = useMemo(() => {
@@ -27,21 +51,18 @@ const ProductGrid = () => {
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          p.reference.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          p.specs.movement.toLowerCase().includes(q) ||
-          p.specs.caseMaterial.toLowerCase().includes(q)
+          (p.reference || "").toLowerCase().includes(q) ||
+          (p.description || "").toLowerCase().includes(q) ||
+          JSON.stringify(p.specs).toLowerCase().includes(q)
       );
     }
 
-    if (activeCategory && activeCategory !== "all") {
-      result = result.filter((p) =>
-        p.id.toLowerCase().includes(activeCategory)
-      );
+    if (activeCategory) {
+      result = result.filter((p) => p.category_id === activeCategory);
     }
 
     return result;
-  }, [search, activeCategory]);
+  }, [search, activeCategory, products]);
 
   return (
     <section id="collection" className="border-t border-foreground/[0.08]">
@@ -51,7 +72,6 @@ const ProductGrid = () => {
             Colección
           </h2>
 
-          {/* Search */}
           <div className="relative w-full md:w-72">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -73,27 +93,43 @@ const ProductGrid = () => {
         </div>
 
         {/* Category filters */}
-        <div className="flex gap-2 flex-wrap mb-2">
-          {categories.map((cat) => (
+        {categories.length > 0 && (
+          <div className="flex gap-2 flex-wrap mb-2">
             <button
-              key={cat.key}
-              onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
+              onClick={() => setActiveCategory(null)}
               className={`h-8 px-4 font-mono text-[10px] uppercase tracking-[0.2em] border transition-colors duration-150 ${
-                (activeCategory === null && cat.key === "all") || activeCategory === cat.key
+                activeCategory === null
                   ? "border-accent text-accent bg-accent/5"
                   : "border-foreground/[0.08] text-muted-foreground hover:text-foreground hover:border-foreground/20"
               }`}
             >
-              {cat.label}
+              Todas
             </button>
-          ))}
-        </div>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`h-8 px-4 font-mono text-[10px] uppercase tracking-[0.2em] border transition-colors duration-150 ${
+                  activeCategory === cat.id
+                    ? "border-accent text-accent bg-accent/5"
+                    : "border-foreground/[0.08] text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 size={24} className="animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="px-6 md:px-12 pb-16 text-center">
           <p className="font-sans text-sm text-muted-foreground">
-            No se encontraron piezas para "{search}".
+            {search ? `No se encontraron piezas para "${search}".` : "Aún no hay productos en la colección."}
           </p>
         </div>
       ) : (
@@ -101,11 +137,14 @@ const ProductGrid = () => {
           {filtered.map((product, i) => (
             <ProductCard
               key={product.id}
-              id={product.id}
+              id={product.slug || product.id}
               name={product.name}
               price={product.price}
-              image={product.image}
-              specs={{ diameter: product.specs.diameter, movement: product.specs.movement }}
+              image={product.image_url || "/placeholder.svg"}
+              specs={{
+                diameter: (product.specs as any)?.diameter || "",
+                movement: (product.specs as any)?.movement || "",
+              }}
               index={i}
             />
           ))}

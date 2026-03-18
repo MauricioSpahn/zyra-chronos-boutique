@@ -10,6 +10,7 @@ interface CartDrawerProps {
 
 const CartDrawer = ({ open, onClose }: CartDrawerProps) => {
   const { items, updateQuantity, removeItem, totalPrice } = useCart();
+  const navigate = useNavigate();
 
   return (
     <AnimatePresence>

@@ -91,7 +91,10 @@ const CartDrawer = ({ open, onClose }: CartDrawerProps) => {
                     <span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Total</span>
                     <span className="font-mono text-lg tabular-nums text-foreground">${totalPrice.toLocaleString()}</span>
                   </div>
-                  <button className="w-full h-12 bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150">
+                  <button
+                    onClick={() => { onClose(); navigate("/checkout"); }}
+                    className="w-full h-12 bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
+                  >
                     Finalizar compra
                   </button>
                 </div>

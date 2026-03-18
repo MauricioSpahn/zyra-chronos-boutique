@@ -34,7 +34,6 @@ Deno.serve(async (req) => {
       title: item.title,
       quantity: item.quantity,
       unit_price: Number(item.unit_price),
-      currency_id: "MXN",
     }));
 
     const preferenceBody: any = {

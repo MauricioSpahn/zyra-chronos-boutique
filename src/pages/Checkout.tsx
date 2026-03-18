@@ -342,57 +342,28 @@ const Checkout = () => {
 
           <Separator className="bg-foreground/[0.08]" />
 
-          {/* Payment method */}
+          {/* Payment info */}
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.2 }}
           >
             <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">
-              Método de pago
+              Pago seguro
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("card")}
-                className={`flex items-center gap-4 p-5 border transition-colors duration-150 ${
-                  paymentMethod === "card"
-                    ? "border-accent bg-accent/5"
-                    : "border-foreground/[0.08] hover:border-foreground/20"
-                }`}
-              >
-                <CreditCard size={20} strokeWidth={1.5} className={paymentMethod === "card" ? "text-accent" : "text-muted-foreground"} />
-                <div className="text-left">
-                  <p className="font-sans text-sm text-foreground">Tarjeta de crédito / débito</p>
-                  <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Visa, Mastercard, AMEX</p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("mercadopago")}
-                className={`flex items-center gap-4 p-5 border transition-colors duration-150 ${
-                  paymentMethod === "mercadopago"
-                    ? "border-accent bg-accent/5"
-                    : "border-foreground/[0.08] hover:border-foreground/20"
-                }`}
-              >
-                <Wallet size={20} strokeWidth={1.5} className={paymentMethod === "mercadopago" ? "text-accent" : "text-muted-foreground"} />
-                <div className="text-left">
-                  <p className="font-sans text-sm text-foreground">Mercado Pago</p>
-                  <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Saldo, transferencia, cuotas</p>
-                </div>
-              </button>
-            </div>
-            {paymentMethod === "mercadopago" && (
-              <p className="mt-4 font-mono text-[10px] text-accent">
+            <div className="p-5 border border-foreground/[0.08] bg-secondary/20 space-y-3">
+              <div className="flex items-center gap-3">
+                <CreditCard size={20} strokeWidth={1.5} className="text-accent" />
+                <Wallet size={20} strokeWidth={1.5} className="text-accent" />
+                <p className="font-sans text-sm text-foreground">Procesado por Mercado Pago</p>
+              </div>
+              <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+                Acepta tarjetas de crédito y débito (Visa, Mastercard, AMEX), saldo de Mercado Pago, transferencias bancarias y cuotas sin interés.
+              </p>
+              <p className="font-mono text-[10px] text-accent">
                 Serás redirigido a Mercado Pago para completar el pago de forma segura.
               </p>
-            )}
-            {paymentMethod === "card" && (
-              <p className="mt-4 font-mono text-[10px] text-muted-foreground/60">
-                El cobro con tarjeta se habilitará próximamente. Tu pedido quedará registrado como pendiente.
-              </p>
-            )}
+            </div>
           </motion.section>
         </div>
 

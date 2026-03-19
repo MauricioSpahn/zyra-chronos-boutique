@@ -67,7 +67,7 @@ const ProductCard = ({ id, name, price, image, specs, index, currency = "USD" }:
         <div className="p-4 md:p-6 flex items-center justify-between">
           <span className="font-sans text-sm text-foreground">{name}</span>
           <span className="font-mono text-sm tabular-nums text-muted-foreground">
-            ${price.toLocaleString()}
+            {sym}{price.toLocaleString()}
           </span>
         </div>
       </Link>

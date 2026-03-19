@@ -334,8 +334,14 @@ const AdminDashboard = () => {
                   <>
                     <input placeholder="Nombre" value={prodName} onChange={(e) => setProdName(e.target.value)} className={inputClass} />
                     <input placeholder="Slug (auto)" value={prodSlug} onChange={(e) => setProdSlug(e.target.value)} className={inputClass} />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <input placeholder="Precio" type="number" value={prodPrice} onChange={(e) => setProdPrice(e.target.value)} className={inputClass} />
+                      <select value={prodCurrency} onChange={(e) => setProdCurrency(e.target.value)} className={inputClass}>
+                        <option value="USD">USD ($)</option>
+                        <option value="ARS">ARS ($ argentino)</option>
+                        <option value="MXN">MXN ($ mexicano)</option>
+                        <option value="EUR">EUR (€)</option>
+                      </select>
                       <input placeholder="Referencia" value={prodRef} onChange={(e) => setProdRef(e.target.value)} className={inputClass} />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

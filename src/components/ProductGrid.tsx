@@ -147,6 +147,7 @@ const ProductGrid = () => {
                 movement: (product.specs as any)?.movement || "",
               }}
               index={i}
+              currency={product.currency}
             />
           ))}
         </div>

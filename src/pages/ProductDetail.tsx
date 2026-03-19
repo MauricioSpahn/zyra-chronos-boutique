@@ -19,6 +19,7 @@ interface DBProduct {
   specs: Record<string, string>;
   gallery: string[];
   units_available: number;
+  currency: string;
 }
 
 const ProductDetail = () => {

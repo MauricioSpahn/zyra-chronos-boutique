@@ -239,7 +239,7 @@ const AdminDashboard = () => {
     setProdUnits(String(p.units_available)); setProdCatId(p.category_id || "");
     setProdDesc(p.description); setProdImage(p.image_url);
     setProdGallery(Array.isArray(p.gallery) ? p.gallery : []);
-    setProdSpecs(JSON.stringify(p.specs, null, 2)); setShowForm(true);
+    setProdSpecs(JSON.stringify(p.specs, null, 2)); setProdCurrency(p.currency || "USD"); setShowForm(true);
   };
 
   const inputClass = "w-full h-12 px-3 bg-secondary border border-foreground/[0.08] font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent rounded-none";

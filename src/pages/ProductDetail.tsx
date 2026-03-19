@@ -75,9 +75,11 @@ const ProductDetail = () => {
     );
   }
 
-  const gallery = Array.isArray(product.gallery) && product.gallery.length > 0
-    ? product.gallery
-    : [product.image_url || "/placeholder.svg"];
+  const galleryImages = Array.isArray(product.gallery) ? product.gallery.filter(Boolean) : [];
+  const mainImage = product.image_url || "/placeholder.svg";
+  const gallery = [mainImage, ...galleryImages.filter(img => img !== mainImage)];
+  
+  const currencySymbol = product.currency === 'ARS' ? 'ARS $' : product.currency === 'EUR' ? '€' : product.currency === 'MXN' ? 'MX $' : '$';
 
   const specs = product.specs || {};
   const specEntries = Object.entries(specs).map(([key, value]) => ({

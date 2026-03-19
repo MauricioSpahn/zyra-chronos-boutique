@@ -21,8 +21,9 @@ const itemVariants = {
   }),
 };
 
-const ProductCard = ({ id, name, price, image, specs, index }: ProductCardProps) => {
+const ProductCard = ({ id, name, price, image, specs, index, currency = "USD" }: ProductCardProps) => {
   const [hovered, setHovered] = useState(false);
+  const sym = currency === 'ARS' ? 'ARS $' : currency === 'EUR' ? '€' : currency === 'MXN' ? 'MX $' : '$';
 
   return (
     <motion.article

@@ -48,7 +48,7 @@ const ProductDetail = () => {
         data = res.data;
       }
 
-      setProduct(data as DBProduct | null);
+      setProduct(data as unknown as DBProduct | null);
       setLoading(false);
     };
     fetchProduct();

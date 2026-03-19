@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Package, FolderOpen, Plus, Trash2, Pencil, Home, ShoppingBag, Menu, BarChart3, Upload, X, Image, Settings, History, Phone } from "lucide-react";
+import { LogOut, Package, FolderOpen, Plus, Trash2, Pencil, Home, ShoppingBag, Menu, BarChart3, Upload, X, Image, Settings, History, Phone, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import AdminHeroSlides from "@/components/admin/AdminHeroSlides";
 import AdminAnalytics from "@/components/admin/AdminAnalytics";
@@ -10,7 +10,7 @@ import AdminAccount from "@/components/admin/AdminAccount";
 import AdminAuditLog from "@/components/admin/AdminAuditLog";
 import AdminContact from "@/components/admin/AdminContact";
 
-interface Category { id: string; name: string; slug: string; }
+interface Category { id: string; name: string; slug: string; parent_id: string | null; }
 interface Product {
   id: string; name: string; slug: string; price: number; reference: string;
   units_available: number; category_id: string | null; image_url: string;
@@ -34,6 +34,7 @@ const AdminDashboard = () => {
   // Category form
   const [catName, setCatName] = useState("");
   const [catSlug, setCatSlug] = useState("");
+  const [catParentId, setCatParentId] = useState("");
 
   // Product form
   const [prodName, setProdName] = useState("");
@@ -48,6 +49,10 @@ const AdminDashboard = () => {
   const [prodSpecs, setProdSpecs] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  // Drag states
+  const [dragOverMain, setDragOverMain] = useState(false);
+  const [dragOverGallery, setDragOverGallery] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +64,6 @@ const AdminDashboard = () => {
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin");
     if (!roles || roles.length === 0) { navigate("/admin/login"); return; }
     setAdminUserId(user.id);
-
-    // Fetch admin profile name
     const { data: profile } = await supabase.from("admin_profiles").select("*").eq("user_id", user.id).maybeSingle();
     if (profile) {
       setAdminName(`${(profile as any).first_name || ""} ${(profile as any).last_name || ""}`.trim());
@@ -84,7 +87,7 @@ const AdminDashboard = () => {
 
   const resetForm = () => {
     setShowForm(false); setEditingId(null);
-    setCatName(""); setCatSlug("");
+    setCatName(""); setCatSlug(""); setCatParentId("");
     setProdName(""); setProdSlug(""); setProdPrice(""); setProdRef("");
     setProdUnits(""); setProdCatId(""); setProdDesc(""); setProdImage("");
     setProdGallery([]); setProdSpecs("");
@@ -92,13 +95,11 @@ const AdminDashboard = () => {
 
   const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-  // Audit log helper
   const logAudit = async (action: string, entityType: string, entityId?: string, details?: Record<string, any>) => {
     await supabase.from("audit_log").insert({
       admin_user_id: adminUserId,
       admin_name: adminName || "Admin",
-      action,
-      entity_type: entityType,
+      action, entity_type: entityType,
       entity_id: entityId || null,
       details: details || {},
     } as any);
@@ -136,18 +137,48 @@ const AdminDashboard = () => {
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
+  const handleFileDrop = useCallback(async (files: FileList, target: "main" | "gallery") => {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith("image/"));
+    if (imageFiles.length === 0) return;
+    setUploading(true);
+    if (target === "main") {
+      const url = await uploadImage(imageFiles[0], "main");
+      if (url) setProdImage(url);
+    } else {
+      for (const file of imageFiles) {
+        const url = await uploadImage(file, "gallery");
+        if (url) setProdGallery((prev) => [...prev, url]);
+      }
+    }
+    setUploading(false);
+  }, []);
+
+  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+
   const removeGalleryImage = (index: number) => setProdGallery((prev) => prev.filter((_, i) => i !== index));
 
-  // CRUD
+  // Categories helpers
+  const getRootCategories = () => categories.filter(c => !c.parent_id);
+  const getSubcategories = (parentId: string) => categories.filter(c => c.parent_id === parentId);
+  const getCategoryLabel = (cat: Category): string => {
+    if (cat.parent_id) {
+      const parent = categories.find(c => c.id === cat.parent_id);
+      return parent ? `${parent.name} → ${cat.name}` : cat.name;
+    }
+    return cat.name;
+  };
+
+  // CRUD Categories
   const saveCategory = async () => {
     const slug = catSlug || slugify(catName);
+    const payload: any = { name: catName, slug, parent_id: catParentId || null };
     if (editingId) {
-      const { error } = await supabase.from("categories").update({ name: catName, slug }).eq("id", editingId);
+      const { error } = await supabase.from("categories").update(payload).eq("id", editingId);
       if (error) { toast.error(error.message); return; }
       await logAudit("update_category", "category", editingId, { name: catName });
       toast.success("Categoría actualizada");
     } else {
-      const { data, error } = await supabase.from("categories").insert({ name: catName, slug }).select().single();
+      const { data, error } = await supabase.from("categories").insert(payload).select().single();
       if (error) { toast.error(error.message); return; }
       await logAudit("create_category", "category", data?.id, { name: catName });
       toast.success("Categoría creada");
@@ -163,9 +194,11 @@ const AdminDashboard = () => {
   };
 
   const editCategory = (cat: Category) => {
-    setEditingId(cat.id); setCatName(cat.name); setCatSlug(cat.slug); setShowForm(true);
+    setEditingId(cat.id); setCatName(cat.name); setCatSlug(cat.slug);
+    setCatParentId(cat.parent_id || ""); setShowForm(true);
   };
 
+  // CRUD Products
   const saveProduct = async () => {
     const slug = prodSlug || slugify(prodName);
     let specs: Record<string, string> = {};
@@ -221,12 +254,9 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-foreground/[0.08] px-4 md:px-12 h-14 md:h-16 flex items-center justify-between sticky top-0 z-30 bg-background">
         <div className="flex items-center gap-3">
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-muted-foreground hover:text-foreground">
-            <Menu size={20} />
-          </button>
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-muted-foreground hover:text-foreground"><Menu size={20} /></button>
           <Link to="/" className="font-mono text-base md:text-lg tracking-[0.3em] font-semibold text-foreground">ZYRA</Link>
         </div>
         <div className="flex items-center gap-4">
@@ -236,7 +266,6 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background/95 backdrop-blur-sm pt-14">
           <nav className="p-6 space-y-2">
@@ -251,7 +280,6 @@ const AdminDashboard = () => {
       )}
 
       <div className="px-4 md:px-12 py-6 md:py-8">
-        {/* Desktop tabs */}
         <div className="hidden md:flex gap-4 mb-8 border-b border-foreground/[0.08] overflow-x-auto">
           {tabs.map(({ key, icon: Icon, label }) => (
             <button key={key} onClick={() => { setTab(key); resetForm(); }}
@@ -261,30 +289,17 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* Mobile label */}
         <div className="md:hidden mb-6">
           <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{tabs.find(t => t.key === tab)?.label}</p>
         </div>
 
-        {/* ANALYTICS */}
         {tab === "analytics" && <AdminAnalytics />}
-
-        {/* ORDERS */}
         {tab === "orders" && <AdminOrdersDB inputClass={inputClass} adminUserId={adminUserId} adminName={adminName} onAuditLog={logAudit} />}
-
-        {/* HOMEPAGE */}
         {tab === "homepage" && <AdminHeroSlides inputClass={inputClass} />}
-
-        {/* CONTACT */}
         {tab === "contact" && <AdminContact inputClass={inputClass} onAuditLog={logAudit} />}
-
-        {/* AUDIT LOG */}
         {tab === "audit" && <AdminAuditLog />}
-
-        {/* ACCOUNT */}
         {tab === "account" && <AdminAccount inputClass={inputClass} adminUserId={adminUserId} onAuditLog={logAudit} />}
 
-        {/* PRODUCTS / CATEGORIES */}
         {(tab === "products" || tab === "categories") && (
           <>
             <button onClick={() => { resetForm(); setShowForm(true); }} className="mb-6 w-full sm:w-auto h-12 px-6 bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors inline-flex items-center justify-center gap-2">
@@ -301,6 +316,12 @@ const AdminDashboard = () => {
                   <>
                     <input placeholder="Nombre" value={catName} onChange={(e) => setCatName(e.target.value)} className={inputClass} />
                     <input placeholder="Slug (auto)" value={catSlug} onChange={(e) => setCatSlug(e.target.value)} className={inputClass} />
+                    <select value={catParentId} onChange={(e) => setCatParentId(e.target.value)} className={inputClass}>
+                      <option value="">Sin categoría padre (raíz)</option>
+                      {getRootCategories().filter(c => c.id !== editingId).map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <button onClick={saveCategory} className="h-12 px-6 bg-foreground text-background font-sans text-[10px] uppercase tracking-[0.2em] hover:bg-accent hover:text-accent-foreground transition-colors flex-1 sm:flex-none">Guardar</button>
                       <button onClick={resetForm} className="h-12 px-6 border border-foreground/[0.08] text-muted-foreground font-sans text-[10px] uppercase tracking-[0.2em] hover:text-foreground transition-colors flex-1 sm:flex-none">Cancelar</button>
@@ -318,35 +339,58 @@ const AdminDashboard = () => {
                       <input placeholder="Unidades" type="number" value={prodUnits} onChange={(e) => setProdUnits(e.target.value)} className={inputClass} />
                       <select value={prodCatId} onChange={(e) => setProdCatId(e.target.value)} className={inputClass}>
                         <option value="">Sin categoría</option>
-                        {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        {categories.map((c) => <option key={c.id} value={c.id}>{getCategoryLabel(c)}</option>)}
                       </select>
                     </div>
 
+                    {/* Main image — drag & drop + click */}
                     <div className="space-y-2">
                       <label className="block font-sans text-xs text-muted-foreground">Imagen principal</label>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="h-12 px-4 border border-dashed border-foreground/20 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors flex items-center justify-center gap-2 font-sans text-xs flex-1 sm:flex-none">
-                          <Upload size={14} /> {uploading ? "Subiendo..." : "Subir imagen"}
-                        </button>
-                        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleMainImageUpload} className="hidden" />
-                        {prodImage && (
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <img src={prodImage} alt="Preview" className="w-12 h-12 object-cover bg-secondary flex-shrink-0" />
+                      <div
+                        onDragOver={onDragOver}
+                        onDragEnter={(e) => { e.preventDefault(); setDragOverMain(true); }}
+                        onDragLeave={() => setDragOverMain(false)}
+                        onDrop={(e) => { e.preventDefault(); setDragOverMain(false); handleFileDrop(e.dataTransfer.files, "main"); }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`cursor-pointer border-2 border-dashed transition-colors p-4 flex flex-col items-center justify-center gap-2 min-h-[100px] ${dragOverMain ? "border-accent bg-accent/5" : "border-foreground/20 hover:border-foreground/40"}`}
+                      >
+                        {prodImage ? (
+                          <div className="flex items-center gap-3 w-full">
+                            <img src={prodImage} alt="Preview" className="w-16 h-16 object-cover bg-secondary flex-shrink-0" />
                             <span className="font-mono text-[10px] text-muted-foreground truncate flex-1">{prodImage.split("/").pop()}</span>
-                            <button onClick={() => setProdImage("")} className="p-1 text-muted-foreground hover:text-destructive flex-shrink-0"><X size={14} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setProdImage(""); }} className="p-1 text-muted-foreground hover:text-destructive flex-shrink-0"><X size={14} /></button>
                           </div>
+                        ) : (
+                          <>
+                            <Upload size={20} className="text-muted-foreground" />
+                            <span className="font-sans text-xs text-muted-foreground text-center">
+                              {uploading ? "Subiendo..." : "Arrastrá una imagen o hacé clic para subir"}
+                            </span>
+                          </>
                         )}
                       </div>
+                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleMainImageUpload} className="hidden" />
                     </div>
 
+                    {/* Gallery — drag & drop + click */}
                     <div className="space-y-2">
                       <label className="block font-sans text-xs text-muted-foreground">Galería</label>
-                      <button type="button" onClick={() => galleryInputRef.current?.click()} disabled={uploading} className="w-full h-12 px-4 border border-dashed border-foreground/20 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors flex items-center justify-center gap-2 font-sans text-xs">
-                        <Image size={14} /> {uploading ? "Subiendo..." : "Agregar imágenes a la galería"}
-                      </button>
+                      <div
+                        onDragOver={onDragOver}
+                        onDragEnter={(e) => { e.preventDefault(); setDragOverGallery(true); }}
+                        onDragLeave={() => setDragOverGallery(false)}
+                        onDrop={(e) => { e.preventDefault(); setDragOverGallery(false); handleFileDrop(e.dataTransfer.files, "gallery"); }}
+                        onClick={() => galleryInputRef.current?.click()}
+                        className={`cursor-pointer border-2 border-dashed transition-colors p-4 flex flex-col items-center justify-center gap-2 min-h-[100px] ${dragOverGallery ? "border-accent bg-accent/5" : "border-foreground/20 hover:border-foreground/40"}`}
+                      >
+                        <Image size={20} className="text-muted-foreground" />
+                        <span className="font-sans text-xs text-muted-foreground text-center">
+                          {uploading ? "Subiendo..." : "Arrastrá imágenes o hacé clic para agregar"}
+                        </span>
+                      </div>
                       <input ref={galleryInputRef} type="file" accept="image/*" multiple onChange={handleGalleryUpload} className="hidden" />
                       {prodGallery.length > 0 && (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
                           {prodGallery.map((url, i) => (
                             <div key={i} className="relative group aspect-square bg-secondary overflow-hidden">
                               <img src={url} alt="" className="w-full h-full object-cover" />
@@ -372,33 +416,48 @@ const AdminDashboard = () => {
               <p className="font-sans text-sm text-muted-foreground">Cargando...</p>
             ) : tab === "categories" ? (
               <>
-                <div className="md:hidden space-y-2">
-                  {categories.length === 0 ? <p className="font-sans text-sm text-muted-foreground">Sin categorías</p> : categories.map((cat) => (
-                    <div key={cat.id} className="flex items-center justify-between p-4 border border-foreground/[0.08]">
-                      <div><p className="font-sans text-sm text-foreground">{cat.name}</p><p className="font-mono text-[10px] text-muted-foreground">{cat.slug}</p></div>
-                      <div className="flex gap-1">
-                        <button onClick={() => editCategory(cat)} className="p-3 text-muted-foreground hover:text-foreground"><Pencil size={16} /></button>
-                        <button onClick={() => deleteCategory(cat.id)} className="p-3 text-muted-foreground hover:text-destructive"><Trash2 size={16} /></button>
+                {/* Category tree view */}
+                <div className="space-y-1">
+                  {getRootCategories().length === 0 && <p className="font-sans text-sm text-muted-foreground">Sin categorías</p>}
+                  {getRootCategories().map((cat) => {
+                    const subs = getSubcategories(cat.id);
+                    return (
+                      <div key={cat.id}>
+                        <div className="flex items-center justify-between p-4 border border-foreground/[0.08]">
+                          <div className="flex items-center gap-2">
+                            <FolderOpen size={14} className="text-accent flex-shrink-0" />
+                            <div>
+                              <p className="font-sans text-sm text-foreground">{cat.name}</p>
+                              <p className="font-mono text-[10px] text-muted-foreground">{cat.slug}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <button onClick={() => editCategory(cat)} className="p-2 text-muted-foreground hover:text-foreground"><Pencil size={14} /></button>
+                            <button onClick={() => deleteCategory(cat.id)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
+                          </div>
+                        </div>
+                        {subs.length > 0 && (
+                          <div className="ml-6 border-l border-foreground/[0.08]">
+                            {subs.map((sub) => (
+                              <div key={sub.id} className="flex items-center justify-between p-3 pl-4 border-b border-foreground/[0.08] last:border-b-0">
+                                <div className="flex items-center gap-2">
+                                  <ChevronRight size={12} className="text-muted-foreground flex-shrink-0" />
+                                  <div>
+                                    <p className="font-sans text-sm text-foreground">{sub.name}</p>
+                                    <p className="font-mono text-[10px] text-muted-foreground">{sub.slug}</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button onClick={() => editCategory(sub)} className="p-2 text-muted-foreground hover:text-foreground"><Pencil size={14} /></button>
+                                  <button onClick={() => deleteCategory(sub.id)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="hidden md:block border border-foreground/[0.08]">
-                  <div className="grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-3 border-b border-foreground/[0.08] bg-secondary/30">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Nombre</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Slug</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Acciones</span>
-                  </div>
-                  {categories.length === 0 ? <p className="px-4 py-6 font-sans text-sm text-muted-foreground">Sin categorías</p> : categories.map((cat) => (
-                    <div key={cat.id} className="grid grid-cols-[1fr_1fr_auto] gap-4 px-4 py-3 border-b border-foreground/[0.08] last:border-b-0 items-center">
-                      <span className="font-sans text-sm text-foreground">{cat.name}</span>
-                      <span className="font-mono text-xs text-muted-foreground">{cat.slug}</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => editCategory(cat)} className="p-2 text-muted-foreground hover:text-foreground"><Pencil size={14} /></button>
-                        <button onClick={() => deleteCategory(cat.id)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             ) : (

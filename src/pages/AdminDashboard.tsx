@@ -48,6 +48,7 @@ const AdminDashboard = () => {
   const [prodImage, setProdImage] = useState("");
   const [prodGallery, setProdGallery] = useState<string[]>([]);
   const [prodSpecs, setProdSpecs] = useState("");
+  const [prodCurrency, setProdCurrency] = useState("USD");
   const [uploading, setUploading] = useState(false);
 
   // Drag states

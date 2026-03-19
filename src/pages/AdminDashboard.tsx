@@ -209,6 +209,7 @@ const AdminDashboard = () => {
       name: prodName, slug, price: Number(prodPrice), reference: prodRef,
       units_available: Number(prodUnits) || 0, category_id: prodCatId || null,
       description: prodDesc, image_url: prodImage, specs, gallery: prodGallery,
+      currency: prodCurrency,
     };
     if (editingId) {
       const { error } = await supabase.from("products").update(payload).eq("id", editingId);

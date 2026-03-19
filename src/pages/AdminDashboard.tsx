@@ -15,6 +15,7 @@ interface Product {
   id: string; name: string; slug: string; price: number; reference: string;
   units_available: number; category_id: string | null; image_url: string;
   description: string; specs: Record<string, string>; gallery: string[];
+  currency: string;
 }
 
 type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact";

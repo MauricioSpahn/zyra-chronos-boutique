@@ -9,6 +9,7 @@ interface ProductCardProps {
   image: string;
   specs: { diameter: string; movement: string };
   index: number;
+  currency?: string;
 }
 
 const itemVariants = {

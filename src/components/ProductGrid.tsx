@@ -15,6 +15,7 @@ interface DBProduct {
   gallery: string[];
   units_available: number;
   category_id: string | null;
+  currency: string;
 }
 
 interface DBCategory {
@@ -146,6 +147,7 @@ const ProductGrid = () => {
                 movement: (product.specs as any)?.movement || "",
               }}
               index={i}
+              currency={product.currency}
             />
           ))}
         </div>

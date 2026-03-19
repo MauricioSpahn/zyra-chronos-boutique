@@ -277,6 +277,7 @@ export type Database = {
         Row: {
           category_id: string | null
           created_at: string
+          currency: string
           description: string | null
           gallery: Json
           id: string
@@ -291,6 +292,7 @@ export type Database = {
         Insert: {
           category_id?: string | null
           created_at?: string
+          currency?: string
           description?: string | null
           gallery?: Json
           id?: string
@@ -305,6 +307,7 @@ export type Database = {
         Update: {
           category_id?: string | null
           created_at?: string
+          currency?: string
           description?: string | null
           gallery?: Json
           id?: string

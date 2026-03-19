@@ -15,6 +15,7 @@ interface Product {
   id: string; name: string; slug: string; price: number; reference: string;
   units_available: number; category_id: string | null; image_url: string;
   description: string; specs: Record<string, string>; gallery: string[];
+  currency: string;
 }
 
 type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact";
@@ -47,6 +48,7 @@ const AdminDashboard = () => {
   const [prodImage, setProdImage] = useState("");
   const [prodGallery, setProdGallery] = useState<string[]>([]);
   const [prodSpecs, setProdSpecs] = useState("");
+  const [prodCurrency, setProdCurrency] = useState("USD");
   const [uploading, setUploading] = useState(false);
 
   // Drag states
@@ -90,7 +92,7 @@ const AdminDashboard = () => {
     setCatName(""); setCatSlug(""); setCatParentId("");
     setProdName(""); setProdSlug(""); setProdPrice(""); setProdRef("");
     setProdUnits(""); setProdCatId(""); setProdDesc(""); setProdImage("");
-    setProdGallery([]); setProdSpecs("");
+    setProdGallery([]); setProdSpecs(""); setProdCurrency("USD");
   };
 
   const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -207,6 +209,7 @@ const AdminDashboard = () => {
       name: prodName, slug, price: Number(prodPrice), reference: prodRef,
       units_available: Number(prodUnits) || 0, category_id: prodCatId || null,
       description: prodDesc, image_url: prodImage, specs, gallery: prodGallery,
+      currency: prodCurrency,
     };
     if (editingId) {
       const { error } = await supabase.from("products").update(payload).eq("id", editingId);
@@ -236,7 +239,7 @@ const AdminDashboard = () => {
     setProdUnits(String(p.units_available)); setProdCatId(p.category_id || "");
     setProdDesc(p.description); setProdImage(p.image_url);
     setProdGallery(Array.isArray(p.gallery) ? p.gallery : []);
-    setProdSpecs(JSON.stringify(p.specs, null, 2)); setShowForm(true);
+    setProdSpecs(JSON.stringify(p.specs, null, 2)); setProdCurrency(p.currency || "USD"); setShowForm(true);
   };
 
   const inputClass = "w-full h-12 px-3 bg-secondary border border-foreground/[0.08] font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent rounded-none";
@@ -331,8 +334,14 @@ const AdminDashboard = () => {
                   <>
                     <input placeholder="Nombre" value={prodName} onChange={(e) => setProdName(e.target.value)} className={inputClass} />
                     <input placeholder="Slug (auto)" value={prodSlug} onChange={(e) => setProdSlug(e.target.value)} className={inputClass} />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <input placeholder="Precio" type="number" value={prodPrice} onChange={(e) => setProdPrice(e.target.value)} className={inputClass} />
+                      <select value={prodCurrency} onChange={(e) => setProdCurrency(e.target.value)} className={inputClass}>
+                        <option value="USD">USD ($)</option>
+                        <option value="ARS">ARS ($ argentino)</option>
+                        <option value="MXN">MXN ($ mexicano)</option>
+                        <option value="EUR">EUR (€)</option>
+                      </select>
                       <input placeholder="Referencia" value={prodRef} onChange={(e) => setProdRef(e.target.value)} className={inputClass} />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -9,6 +9,7 @@ interface ProductCardProps {
   image: string;
   specs: { diameter: string; movement: string };
   index: number;
+  currency?: string;
 }
 
 const itemVariants = {
@@ -20,8 +21,9 @@ const itemVariants = {
   }),
 };
 
-const ProductCard = ({ id, name, price, image, specs, index }: ProductCardProps) => {
+const ProductCard = ({ id, name, price, image, specs, index, currency = "USD" }: ProductCardProps) => {
   const [hovered, setHovered] = useState(false);
+  const sym = currency === 'ARS' ? 'ARS $' : currency === 'EUR' ? '€' : currency === 'MXN' ? 'MX $' : '$';
 
   return (
     <motion.article
@@ -65,7 +67,7 @@ const ProductCard = ({ id, name, price, image, specs, index }: ProductCardProps)
         <div className="p-4 md:p-6 flex items-center justify-between">
           <span className="font-sans text-sm text-foreground">{name}</span>
           <span className="font-mono text-sm tabular-nums text-muted-foreground">
-            ${price.toLocaleString()}
+            {sym}{price.toLocaleString()}
           </span>
         </div>
       </Link>

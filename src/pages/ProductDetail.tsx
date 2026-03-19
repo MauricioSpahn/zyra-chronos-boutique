@@ -19,6 +19,7 @@ interface DBProduct {
   specs: Record<string, string>;
   gallery: string[];
   units_available: number;
+  currency: string;
 }
 
 const ProductDetail = () => {
@@ -47,7 +48,7 @@ const ProductDetail = () => {
         data = res.data;
       }
 
-      setProduct(data as DBProduct | null);
+      setProduct(data as unknown as DBProduct | null);
       setLoading(false);
     };
     fetchProduct();
@@ -74,9 +75,11 @@ const ProductDetail = () => {
     );
   }
 
-  const gallery = Array.isArray(product.gallery) && product.gallery.length > 0
-    ? product.gallery
-    : [product.image_url || "/placeholder.svg"];
+  const galleryImages = Array.isArray(product.gallery) ? product.gallery.filter(Boolean) : [];
+  const mainImage = product.image_url || "/placeholder.svg";
+  const gallery = [mainImage, ...galleryImages.filter(img => img !== mainImage)];
+  
+  const currencySymbol = product.currency === 'ARS' ? 'ARS $' : product.currency === 'EUR' ? '€' : product.currency === 'MXN' ? 'MX $' : '$';
 
   const specs = product.specs || {};
   const specEntries = Object.entries(specs).map(([key, value]) => ({
@@ -164,12 +167,9 @@ const ProductDetail = () => {
                 </span>
               )}
               <h1 className="mt-3 font-mono text-3xl md:text-4xl tracking-tighter text-foreground">{product.name}</h1>
-              <p className="mt-4 font-mono text-2xl tabular-nums text-foreground">${product.price.toLocaleString()}</p>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-                Unidades numeradas: {product.units_available}
-              </p>
+              <p className="mt-4 font-mono text-2xl tabular-nums text-foreground">{currencySymbol}{product.price.toLocaleString()}</p>
               {product.description && (
-                <p className="mt-8 font-sans text-sm text-muted-foreground leading-relaxed max-w-lg">{product.description}</p>
+                <p className="mt-8 font-sans text-sm text-muted-foreground leading-relaxed max-w-lg whitespace-pre-line">{product.description}</p>
               )}
 
               <div className="mt-10 flex items-center gap-4">

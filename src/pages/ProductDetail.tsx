@@ -167,10 +167,7 @@ const ProductDetail = () => {
                 </span>
               )}
               <h1 className="mt-3 font-mono text-3xl md:text-4xl tracking-tighter text-foreground">{product.name}</h1>
-              <p className="mt-4 font-mono text-2xl tabular-nums text-foreground">${product.price.toLocaleString()}</p>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-                Unidades numeradas: {product.units_available}
-              </p>
+              <p className="mt-4 font-mono text-2xl tabular-nums text-foreground">{currencySymbol}{product.price.toLocaleString()}</p>
               {product.description && (
                 <p className="mt-8 font-sans text-sm text-muted-foreground leading-relaxed max-w-lg">{product.description}</p>
               )}

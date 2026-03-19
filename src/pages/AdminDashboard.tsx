@@ -92,7 +92,7 @@ const AdminDashboard = () => {
     setCatName(""); setCatSlug(""); setCatParentId("");
     setProdName(""); setProdSlug(""); setProdPrice(""); setProdRef("");
     setProdUnits(""); setProdCatId(""); setProdDesc(""); setProdImage("");
-    setProdGallery([]); setProdSpecs("");
+    setProdGallery([]); setProdSpecs(""); setProdCurrency("USD");
   };
 
   const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");

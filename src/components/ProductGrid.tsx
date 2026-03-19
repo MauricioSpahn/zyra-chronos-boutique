@@ -15,6 +15,7 @@ interface DBProduct {
   gallery: string[];
   units_available: number;
   category_id: string | null;
+  currency: string;
 }
 
 interface DBCategory {

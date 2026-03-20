@@ -73,12 +73,14 @@ const Checkout = () => {
 
     setLoading(true);
     try {
+      const orderId = crypto.randomUUID();
       const orderNum = generateOrderNumber();
 
       // 1. Create order in DB
-      const { data: order, error: orderError } = await supabase
+      const { error: orderError } = await supabase
         .from("orders")
         .insert({
+          id: orderId,
           order_number: orderNum,
           email: form.email.trim(),
           first_name: form.firstName.trim(),
@@ -95,14 +97,12 @@ const Checkout = () => {
           shipping_cost: shippingCost,
           total,
         })
-        .select("id")
-        .single();
 
       if (orderError) throw orderError;
 
       // 2. Insert order items
       const orderItems = items.map((item) => ({
-        order_id: order.id,
+        order_id: orderId,
         product_name: item.name,
         product_image: item.image,
         price: item.price,
@@ -119,7 +119,7 @@ const Checkout = () => {
         "create-mp-preference",
         {
           body: {
-            order_id: order.id,
+            order_id: orderId,
             items: items.map((item) => ({
               title: item.name,
               quantity: item.quantity,
@@ -140,6 +140,9 @@ const Checkout = () => {
       );
 
       if (mpError) throw mpError;
+      if (!mpData?.init_point && !mpData?.sandbox_init_point) {
+        throw new Error("Mercado Pago no devolvió una URL de pago");
+      }
 
       // Redirect to MercadoPago checkout (supports cards + wallet + transfers)
       const redirectUrl = mpData.init_point || mpData.sandbox_init_point;

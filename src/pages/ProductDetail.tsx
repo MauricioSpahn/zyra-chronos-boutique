@@ -199,6 +199,12 @@ const ProductDetail = () => {
                   Adquirir pieza
                 </button>
               </div>
+
+              {isAdmin && (
+                <div className="mt-4">
+                  <ProductSocialCard product={product} />
+                </div>
+              )}
             </motion.div>
 
             {specEntries.length > 0 && (

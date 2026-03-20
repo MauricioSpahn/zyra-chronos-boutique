@@ -6,6 +6,7 @@ import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ProductSocialCard from "@/components/ProductSocialCard";
 import { toast } from "sonner";
 
 interface DBProduct {

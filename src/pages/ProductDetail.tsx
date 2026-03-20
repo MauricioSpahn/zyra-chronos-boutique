@@ -6,6 +6,7 @@ import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ProductSocialCard from "@/components/ProductSocialCard";
 import { toast } from "sonner";
 
 interface DBProduct {
@@ -28,7 +29,19 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { addItem } = useCart();
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        setIsAdmin(!!data);
+      }
+    };
+    checkAdmin();
+  }, []);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -186,6 +199,12 @@ const ProductDetail = () => {
                   Adquirir pieza
                 </button>
               </div>
+
+              {isAdmin && (
+                <div className="mt-4">
+                  <ProductSocialCard product={product} />
+                </div>
+              )}
             </motion.div>
 
             {specEntries.length > 0 && (

@@ -29,7 +29,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build preference items for MercadoPago
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Fetch order from DB to get server-side totals
+    const { data: order, error: orderErr } = await supabaseAdmin
+      .from("orders")
+      .select("total, subtotal, shipping_cost")
+      .eq("id", order_id)
+      .single();
+
+    if (orderErr || !order) {
+      return new Response(
+        JSON.stringify({ error: "Order not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Build preference items from client (titles for display) but use DB total
     const mpItems = items.map((item: any) => ({
       title: item.title,
       quantity: item.quantity,
@@ -54,7 +73,8 @@ Deno.serve(async (req) => {
       preferenceBody.back_urls = back_urls;
     }
 
-    // Create MercadoPago preference
+    console.log("Creating MP preference for order:", order_id, "total:", order.total);
+
     const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
       headers: {
@@ -73,12 +93,6 @@ Deno.serve(async (req) => {
         { status: mpResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Update order payment_reference with preference id
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     await supabaseAdmin
       .from("orders")

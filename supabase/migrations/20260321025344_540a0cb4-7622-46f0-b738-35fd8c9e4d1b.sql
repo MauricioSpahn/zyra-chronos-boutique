@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anyone can create checkout sessions" ON public.checkout_sessions;

@@ -103,6 +103,63 @@ export type Database = {
           },
         ]
       }
+      checkout_sessions: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          customer_data: Json
+          id: string
+          items: Json
+          order_number: string
+          payment_id: string | null
+          payment_method: string
+          payment_reference: string | null
+          preference_id: string | null
+          session_token: string
+          shipping_cost: number
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          customer_data?: Json
+          id?: string
+          items?: Json
+          order_number: string
+          payment_id?: string | null
+          payment_method?: string
+          payment_reference?: string | null
+          preference_id?: string | null
+          session_token?: string
+          shipping_cost?: number
+          status?: string
+          subtotal: number
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          customer_data?: Json
+          id?: string
+          items?: Json
+          order_number?: string
+          payment_id?: string | null
+          payment_method?: string
+          payment_reference?: string | null
+          preference_id?: string | null
+          session_token?: string
+          shipping_cost?: number
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hero_slides: {
         Row: {
           created_at: string

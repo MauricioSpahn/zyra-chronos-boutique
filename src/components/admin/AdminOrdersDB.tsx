@@ -446,9 +446,9 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
 
           {/* Desktop table */}
           <div className="hidden md:block border border-foreground/[0.08] overflow-x-auto">
-            <div className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] bg-secondary/30 min-w-[800px]">
-              {["Orden", "Cliente", "Email", "Fecha", "Total", "Estado", "Admin", ""].map((h) => (
-                <span key={h} className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{h}</span>
+            <div className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] bg-secondary/30 min-w-[900px]">
+              {["Orden", "Cliente", "Email", "Fecha", "Total", "Estado", "Admin", "", ""].map((h, i) => (
+                <span key={i} className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{h}</span>
               ))}
             </div>
             {filtered.map((order) => (

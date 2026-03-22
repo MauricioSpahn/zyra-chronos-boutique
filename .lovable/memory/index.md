@@ -1,4 +1,4 @@
-Design system, architecture, and key decisions for Zyra luxury watch e-commerce
+Zyra luxury watch e-commerce: dark brutalist design, no rounded corners, Geist Mono + Instrument Sans fonts
 
 ## Design System
 - Background: hsl(0 0% 10%) deep black
@@ -16,9 +16,10 @@ Design system, architecture, and key decisions for Zyra luxury watch e-commerce
 ## Architecture  
 - 100% custom on Lovable Cloud (no Shopify)
 - Guest checkout (no registration required to buy)
-- Admin system at /admin with role-based auth (user_roles table)
-- Stripe for payments (to enable later)
-- Cart: React Context + localStorage persistence
-- DB tables: categories, products, user_roles (with app_role enum)
-- Static product data in src/data/products.ts (demo catalog)
-- Admin CRUD at /admin, login at /admin/login
+- Admin system for categories + product management
+- Mercado Pago for payments via checkout_sessions flow
+- Orders created ONLY after confirmed payment
+- Numeric-only order numbers
+- AnnouncementBar (editable) + Header offset pt-24
+- /coleccion page with search, categories, subcategories
+- Device ID (MP security script) in index.html

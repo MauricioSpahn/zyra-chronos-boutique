@@ -452,7 +452,7 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
               ))}
             </div>
             {filtered.map((order) => (
-              <div key={order.id} className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] last:border-b-0 items-center min-w-[800px]">
+              <div key={order.id} className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] last:border-b-0 items-center min-w-[900px]">
                 <span className="font-mono text-xs text-foreground">{order.order_number}</span>
                 <span className="font-sans text-sm text-foreground truncate">{order.first_name} {order.last_name}</span>
                 <span className="font-mono text-[10px] text-muted-foreground truncate">{order.email}</span>

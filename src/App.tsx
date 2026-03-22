@@ -10,6 +10,7 @@ import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import Checkout from "./pages/Checkout.tsx";
 import Contact from "./pages/Contact.tsx";
+import Collection from "./pages/Collection.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => {
             <Route path="/" element={<Index />} />
             <Route path="/producto/:id" element={<ProductDetail />} />
             <Route path="/contacto" element={<Contact />} />
+            <Route path="/coleccion" element={<Collection />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/checkout" element={<Checkout />} />

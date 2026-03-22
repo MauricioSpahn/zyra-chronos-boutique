@@ -23,6 +23,9 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
   const [heroButtonLink, setHeroButtonLink] = useState("#collection");
   const [brandTagline, setBrandTagline] = useState("");
   const [brandFooter, setBrandFooter] = useState("");
+  const [announcementText, setAnnouncementText] = useState("ENVÍOS SIN CARGO A TODO EL PAÍS");
+  const [collectionTitle, setCollectionTitle] = useState("COLECCIÓN");
+  const [collectionDesc, setCollectionDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -50,6 +53,13 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         if (row.key === "brand") {
           setBrandTagline(val.tagline || "");
           setBrandFooter(val.footer_text || "");
+        }
+        if (row.key === "announcement_bar") {
+          setAnnouncementText(val.text || "");
+        }
+        if (row.key === "collection_page") {
+          setCollectionTitle(val.title || "COLECCIÓN");
+          setCollectionDesc(val.description || "");
         }
       }
     }
@@ -105,7 +115,7 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
 
   const saveSettings = async () => {
     setSaving(true);
-    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    const [{ error: e1 }, { error: e2 }, { error: e3 }, { error: e4 }] = await Promise.all([
       supabase.from("site_settings").update({
         value: { title: heroTitle, subtitle: heroSubtitle, buttonText: heroButton, buttonLink: heroButtonLink } as any,
         updated_at: new Date().toISOString(),
@@ -114,8 +124,18 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         value: { tagline: brandTagline, footer_text: brandFooter } as any,
         updated_at: new Date().toISOString(),
       }).eq("key", "brand"),
+      supabase.from("site_settings").upsert({
+        key: "announcement_bar",
+        value: { text: announcementText } as any,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" }),
+      supabase.from("site_settings").upsert({
+        key: "collection_page",
+        value: { title: collectionTitle, description: collectionDesc } as any,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" }),
     ]);
-    if (e1 || e2) toast.error("Error al guardar");
+    if (e1 || e2 || e3 || e4) toast.error("Error al guardar");
     else toast.success("Configuración guardada");
     setSaving(false);
   };
@@ -176,6 +196,15 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         )}
       </div>
 
+      {/* Announcement Bar */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Barra de anuncios</p>
+        <div>
+          <label className="block font-sans text-xs text-muted-foreground mb-1">Texto (dejá vacío para ocultar)</label>
+          <input value={announcementText} onChange={(e) => setAnnouncementText(e.target.value)} className={inputClass} placeholder="ENVÍOS SIN CARGO A TODO EL PAÍS" />
+        </div>
+      </div>
+
       {/* Text settings */}
       <div className="space-y-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Textos del Hero</p>
@@ -196,6 +225,21 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
             <label className="block font-sans text-xs text-muted-foreground mb-1">Enlace del botón</label>
             <input value={heroButtonLink} onChange={(e) => setHeroButtonLink(e.target.value)} placeholder="#collection, /productos, https://..." className={inputClass} />
             <p className="font-mono text-[10px] text-muted-foreground mt-1">Ejemplos: #collection, /producto/zyra-one, https://link-externo.com</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Collection page */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Página de colección</p>
+        <div className="space-y-3">
+          <div>
+            <label className="block font-sans text-xs text-muted-foreground mb-1">Título</label>
+            <input value={collectionTitle} onChange={(e) => setCollectionTitle(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="block font-sans text-xs text-muted-foreground mb-1">Descripción</label>
+            <textarea value={collectionDesc} onChange={(e) => setCollectionDesc(e.target.value)} rows={4} className={`${inputClass} h-auto py-3`} placeholder="Texto introductorio de la colección..." />
           </div>
         </div>
       </div>

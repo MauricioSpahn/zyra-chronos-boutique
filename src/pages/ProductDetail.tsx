@@ -114,7 +114,7 @@ const ProductDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-16">
+      <main className="pt-24">
         <div className="px-6 md:px-12 py-6 border-b border-foreground/[0.08]">
           <Link to="/" className="inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground transition-colors duration-150">
             <ArrowLeft size={14} strokeWidth={1.5} />

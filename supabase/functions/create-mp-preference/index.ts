@@ -12,11 +12,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { order_id, items, payer, back_urls } = await req.json();
+    const { session_id, items, payer, back_urls, order_number } = await req.json();
 
-    if (!order_id || !items || !Array.isArray(items) || items.length === 0) {
+    if (!session_id || !items || !Array.isArray(items) || items.length === 0) {
       return new Response(
-        JSON.stringify({ error: "order_id and items are required" }),
+        JSON.stringify({ error: "session_id and items are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -29,35 +29,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Fetch order from DB to get server-side totals
-    const { data: order, error: orderErr } = await supabaseAdmin
-      .from("orders")
-      .select("total, subtotal, shipping_cost")
-      .eq("id", order_id)
-      .single();
-
-    if (orderErr || !order) {
-      return new Response(
-        JSON.stringify({ error: "Order not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Build preference items from client (titles for display) but use DB total
+    // Build preference items with order number in title for MP receipt
     const mpItems = items.map((item: any) => ({
-      title: item.title,
+      title: `${item.title} | Orden ${order_number || ""}`.trim(),
       quantity: item.quantity,
       unit_price: Number(item.unit_price),
+      currency_id: "MXN",
     }));
 
     const preferenceBody: any = {
       items: mpItems,
-      external_reference: order_id,
+      external_reference: session_id,
       auto_return: "approved",
     };
 
@@ -73,7 +55,7 @@ Deno.serve(async (req) => {
       preferenceBody.back_urls = back_urls;
     }
 
-    console.log("Creating MP preference for order:", order_id, "total:", order.total);
+    console.log("Creating MP preference for session:", session_id);
 
     const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
@@ -94,10 +76,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Update checkout session with preference id
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
     await supabaseAdmin
-      .from("orders")
-      .update({ payment_reference: mpData.id, payment_method: "mercadopago" })
-      .eq("id", order_id);
+      .from("checkout_sessions")
+      .update({ preference_id: mpData.id })
+      .eq("id", session_id);
 
     return new Response(
       JSON.stringify({

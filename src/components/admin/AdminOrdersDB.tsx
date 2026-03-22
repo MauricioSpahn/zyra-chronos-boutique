@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar, CheckCircle2,
+  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar, CheckCircle2, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -89,6 +89,18 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
     toast.success(`Estado: ${STATUS_LABELS[status]}`);
     fetchOrders();
     if (selectedOrder?.id === orderId) setSelectedOrder(prev => prev ? { ...prev, status, managed_by_name: adminName, delivered_at: status === "delivered" ? new Date().toISOString() : prev.delivered_at } : null);
+  };
+
+  const deleteOrder = async (orderId: string, orderNumber: string) => {
+    if (!confirm(`¿Eliminar pedido ${orderNumber}? Esta acción no se puede deshacer.`)) return;
+    // Delete items first, then order
+    await supabase.from("order_items").delete().eq("order_id", orderId);
+    const { error } = await supabase.from("orders").delete().eq("id", orderId);
+    if (error) { toast.error(error.message); return; }
+    await onAuditLog("delete_order", "order", orderNumber, { admin: adminName });
+    toast.success(`Pedido ${orderNumber} eliminado`);
+    if (selectedOrder?.id === orderId) setSelectedOrder(null);
+    fetchOrders();
   };
 
   const filtered = orders.filter((o) => {
@@ -235,6 +247,9 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
                   <CheckCircle2 size={14} /> Marcar entregado
                 </button>
               )}
+              <button onClick={() => deleteOrder(selectedOrder.id, selectedOrder.order_number)} className="h-10 px-4 border border-destructive/30 text-destructive font-sans text-[10px] uppercase tracking-[0.15em] hover:bg-destructive hover:text-destructive-foreground transition-colors flex items-center justify-center gap-2">
+                <Trash2 size={14} /> Eliminar
+              </button>
             </div>
           </div>
 
@@ -431,13 +446,13 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
 
           {/* Desktop table */}
           <div className="hidden md:block border border-foreground/[0.08] overflow-x-auto">
-            <div className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] bg-secondary/30 min-w-[800px]">
-              {["Orden", "Cliente", "Email", "Fecha", "Total", "Estado", "Admin", ""].map((h) => (
-                <span key={h} className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{h}</span>
+            <div className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] bg-secondary/30 min-w-[900px]">
+              {["Orden", "Cliente", "Email", "Fecha", "Total", "Estado", "Admin", "", ""].map((h, i) => (
+                <span key={i} className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{h}</span>
               ))}
             </div>
             {filtered.map((order) => (
-              <div key={order.id} className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] last:border-b-0 items-center min-w-[800px]">
+              <div key={order.id} className="grid grid-cols-[120px_1fr_1fr_100px_100px_100px_100px_auto_auto] gap-3 px-4 py-3 border-b border-foreground/[0.08] last:border-b-0 items-center min-w-[900px]">
                 <span className="font-mono text-xs text-foreground">{order.order_number}</span>
                 <span className="font-sans text-sm text-foreground truncate">{order.first_name} {order.last_name}</span>
                 <span className="font-mono text-[10px] text-muted-foreground truncate">{order.email}</span>
@@ -453,6 +468,9 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
                 <span className="font-mono text-[10px] text-accent truncate">{order.managed_by_name || "-"}</span>
                 <button onClick={() => viewDetails(order)} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
                   <Eye size={14} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); deleteOrder(order.id, order.order_number); }} className="p-2 text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 size={14} />
                 </button>
               </div>
             ))}

@@ -71,7 +71,7 @@ const Collection = () => {
     <div className="min-h-screen bg-background">
       <AnnouncementBar />
       <Header />
-      <main className="pt-16">
+      <main className="pt-24">
         {/* Hero section */}
         <section className="px-6 md:px-12 py-20 md:py-32 border-b border-foreground/[0.08]">
           <h1 className="font-mono text-3xl md:text-5xl tracking-[0.2em] text-foreground mb-4">

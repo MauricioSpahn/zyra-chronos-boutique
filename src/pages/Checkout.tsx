@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, CreditCard, Wallet, Loader2, CheckCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, Wallet, Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-
-// Payment is handled entirely by Mercado Pago (cards + wallet + transfers)
+import Header from "@/components/Header";
+import AnnouncementBar from "@/components/AnnouncementBar";
 
 interface ShippingForm {
   firstName: string;
@@ -25,31 +25,21 @@ interface ShippingForm {
 }
 
 const INITIAL_FORM: ShippingForm = {
-  firstName: "",
-  lastName: "",
-  email: "",
-  phone: "",
-  addressLine1: "",
-  addressLine2: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  country: "MX",
+  firstName: "", lastName: "", email: "", phone: "",
+  addressLine1: "", addressLine2: "", city: "", state: "",
+  postalCode: "", country: "MX",
 };
 
 const generateOrderNumber = () => {
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `ZYR-${ts}-${rand}`;
+  const now = Date.now();
+  return String(now).slice(-10);
 };
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCart();
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState<ShippingForm>(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
 
   const shippingCost = totalPrice >= 5000 ? 0 : 350;
   const total = totalPrice + shippingCost;
@@ -58,118 +48,56 @@ const Checkout = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const isFormValid =
-    form.firstName.trim() &&
-    form.lastName.trim() &&
-    form.email.trim() &&
-    form.addressLine1.trim() &&
-    form.city.trim() &&
-    form.state.trim() &&
-    form.postalCode.trim() &&
-    items.length > 0;
+    form.firstName.trim() && form.lastName.trim() && form.email.trim() &&
+    form.addressLine1.trim() && form.city.trim() && form.state.trim() &&
+    form.postalCode.trim() && items.length > 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFormValid) return;
+  // Handle MP return
+  const returnStatus = searchParams.get("status");
+  const returnOrder = searchParams.get("order");
+  const paymentId = searchParams.get("payment_id") || searchParams.get("collection_id");
+  const sessionId = searchParams.get("session_id");
 
-    setLoading(true);
-    try {
-      const orderId = crypto.randomUUID();
-      const orderNum = generateOrderNumber();
+  // Confirm payment on return
+  const [confirming, setConfirming] = useState(false);
+  const [confirmResult, setConfirmResult] = useState<{ approved: boolean; status: string; order_number: string } | null>(null);
 
-      // 1. Create order in DB
-      const { error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          id: orderId,
-          order_number: orderNum,
-          email: form.email.trim(),
-          first_name: form.firstName.trim(),
-          last_name: form.lastName.trim(),
-          phone: form.phone.trim() || null,
-          address_line1: form.addressLine1.trim(),
-          address_line2: form.addressLine2.trim() || null,
-          city: form.city.trim(),
-          state: form.state.trim(),
-          postal_code: form.postalCode.trim(),
-          country: form.country,
-          payment_method: "mercadopago",
-          subtotal: totalPrice,
-          shipping_cost: shippingCost,
-          total,
-        })
-
-      if (orderError) throw orderError;
-
-      // 2. Insert order items
-      const orderItems = items.map((item) => ({
-        order_id: orderId,
-        product_name: item.name,
-        product_image: item.image,
-        price: item.price,
-        quantity: item.quantity,
-        subtotal: item.price * item.quantity,
-      }));
-
-      const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
-      if (itemsError) throw itemsError;
-
-      // 3. Create Mercado Pago preference and redirect (handles both card and MP wallet)
-      const currentOrigin = window.location.origin;
-      const { data: mpData, error: mpError } = await supabase.functions.invoke(
-        "create-mp-preference",
-        {
-          body: {
-            order_id: orderId,
-            items: items.map((item) => ({
-              title: item.name,
-              quantity: item.quantity,
-              unit_price: item.price,
-            })),
-            payer: {
-              email: form.email.trim(),
-              first_name: form.firstName.trim(),
-              last_name: form.lastName.trim(),
-            },
-            back_urls: {
-              success: `${currentOrigin}/checkout?status=approved&order=${orderNum}`,
-              failure: `${currentOrigin}/checkout?status=failure&order=${orderNum}`,
-              pending: `${currentOrigin}/checkout?status=pending&order=${orderNum}`,
-            },
-          },
+  useEffect(() => {
+    if (paymentId && sessionId && !confirmResult && !confirming) {
+      setConfirming(true);
+      supabase.functions.invoke("confirm-mp-payment", {
+        body: { payment_id: paymentId, session_id: sessionId },
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error("Confirm error:", error);
+          setConfirmResult({ approved: false, status: "error", order_number: returnOrder || "" });
+        } else {
+          setConfirmResult(data);
         }
-      );
-
-      if (mpError) throw mpError;
-      if (!mpData?.init_point && !mpData?.sandbox_init_point) {
-        throw new Error("Mercado Pago no devolvió una URL de pago");
-      }
-
-      // Redirect to MercadoPago checkout (supports cards + wallet + transfers)
-      const redirectUrl = mpData.init_point || mpData.sandbox_init_point;
-      if (redirectUrl) {
-        clearCart();
-        window.location.href = redirectUrl;
-        return;
-      }
-
-      // Fallback if redirect URL not available
-      setOrderNumber(orderNum);
-      setOrderComplete(true);
-      clearCart();
-    } catch (err: any) {
-      console.error("Order error:", err);
-      toast.error("Error al procesar tu pedido. Intenta de nuevo.");
-    } finally {
-      setLoading(false);
+        setConfirming(false);
+      });
     }
-  };
+  }, [paymentId, sessionId]);
 
-  // Check for MP return params
-  const urlParams = new URLSearchParams(window.location.search);
-  const returnStatus = urlParams.get("status");
-  const returnOrder = urlParams.get("order");
+  // Return status screen
+  if (returnStatus || confirmResult || confirming) {
+    const status = confirmResult?.approved ? "approved" : confirmResult?.status || returnStatus || "pending";
+    const orderNum = confirmResult?.order_number || returnOrder || "";
 
-  if (returnStatus && returnOrder) {
+    if (confirming) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center px-6">
+          <div className="text-center">
+            <Loader2 className="mx-auto mb-6 animate-spin text-accent" size={48} />
+            <p className="font-mono text-sm text-muted-foreground">Verificando tu pago...</p>
+          </div>
+        </div>
+      );
+    }
+
+    const Icon = status === "approved" ? CheckCircle : status === "pending" ? Clock : XCircle;
+    const iconColor = status === "approved" ? "text-accent" : "text-muted-foreground";
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <motion.div
@@ -178,27 +106,21 @@ const Checkout = () => {
           transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
           className="text-center max-w-md"
         >
-          <CheckCircle
-            className={`mx-auto mb-6 ${returnStatus === "approved" ? "text-accent" : "text-muted-foreground"}`}
-            size={48}
-            strokeWidth={1}
-          />
+          <Icon className={`mx-auto mb-6 ${iconColor}`} size={48} strokeWidth={1} />
           <h1 className="font-mono text-2xl tracking-tight text-foreground">
-            {returnStatus === "approved"
-              ? "Pago aprobado"
-              : returnStatus === "pending"
-              ? "Pago pendiente"
-              : "Pago no procesado"}
+            {status === "approved" ? "Pago aprobado" : status === "pending" ? "Pago pendiente" : "Pago no procesado"}
           </h1>
-          <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {returnOrder}
-          </p>
+          {orderNum && (
+            <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Orden #{orderNum}
+            </p>
+          )}
           <p className="mt-6 font-sans text-sm text-muted-foreground leading-relaxed">
-            {returnStatus === "approved"
-              ? "Tu pago fue procesado exitosamente. Recibirás un correo con los detalles."
-              : returnStatus === "pending"
+            {status === "approved"
+              ? "Tu pago fue procesado exitosamente. Tu pedido ha sido creado y recibirás un correo con los detalles."
+              : status === "pending"
               ? "Tu pago está pendiente de confirmación. Te notificaremos cuando se acredite."
-              : "Hubo un problema con tu pago. Puedes intentar de nuevo o elegir otro método."}
+              : "Hubo un problema con tu pago. Puedes intentar de nuevo."}
           </p>
           <Link
             to="/"
@@ -211,7 +133,8 @@ const Checkout = () => {
     );
   }
 
-  if (items.length === 0 && !orderComplete) {
+  // Empty cart
+  if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -227,36 +150,91 @@ const Checkout = () => {
     );
   }
 
-  if (orderComplete) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1] }}
-          className="text-center max-w-md"
-        >
-          <CheckCircle className="mx-auto mb-6 text-accent" size={48} strokeWidth={1} />
-          <h1 className="font-mono text-2xl tracking-tight text-foreground">Pedido confirmado</h1>
-          <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {orderNumber}
-          </p>
-          <p className="mt-6 font-sans text-sm text-muted-foreground leading-relaxed">
-            Recibirás un correo de confirmación en <span className="text-foreground">{form.email}</span> con los detalles de tu pedido.
-          </p>
-          <p className="mt-4 font-sans text-xs text-muted-foreground">
-            Para tarjetas de crédito/débito, el cobro se procesará al integrar la pasarela de pagos con tarjeta.
-          </p>
-          <Link
-            to="/"
-            className="inline-block mt-8 h-12 px-8 leading-[3rem] bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
-          >
-            Volver a la tienda
-          </Link>
-        </motion.div>
-      </div>
-    );
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid) return;
+
+    setLoading(true);
+    try {
+      const orderNum = generateOrderNumber();
+
+      // 1. Create checkout session (NOT an order yet)
+      const { data: session, error: sessionError } = await supabase
+        .from("checkout_sessions")
+        .insert({
+          order_number: orderNum,
+          customer_data: {
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
+            email: form.email.trim(),
+            phone: form.phone.trim(),
+            addressLine1: form.addressLine1.trim(),
+            addressLine2: form.addressLine2.trim(),
+            city: form.city.trim(),
+            state: form.state.trim(),
+            postalCode: form.postalCode.trim(),
+            country: form.country,
+          },
+          items: items.map(item => ({
+            name: item.name,
+            image: item.image,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+          subtotal: totalPrice,
+          shipping_cost: shippingCost,
+          total,
+        })
+        .select()
+        .single();
+
+      if (sessionError || !session) {
+        console.error("Session error:", sessionError);
+        throw new Error(sessionError?.message || "Error creando sesión");
+      }
+
+      // 2. Create Mercado Pago preference
+      const currentOrigin = window.location.origin;
+      const { data: mpData, error: mpError } = await supabase.functions.invoke(
+        "create-mp-preference",
+        {
+          body: {
+            session_id: session.id,
+            order_number: orderNum,
+            items: items.map((item) => ({
+              title: item.name,
+              quantity: item.quantity,
+              unit_price: item.price,
+            })),
+            payer: {
+              email: form.email.trim(),
+              first_name: form.firstName.trim(),
+              last_name: form.lastName.trim(),
+            },
+            back_urls: {
+              success: `${currentOrigin}/checkout?status=approved&order=${orderNum}&session_id=${session.id}`,
+              failure: `${currentOrigin}/checkout?status=failure&order=${orderNum}&session_id=${session.id}`,
+              pending: `${currentOrigin}/checkout?status=pending&order=${orderNum}&session_id=${session.id}`,
+            },
+          },
+        }
+      );
+
+      if (mpError) throw mpError;
+      if (!mpData?.init_point && !mpData?.sandbox_init_point) {
+        throw new Error("Mercado Pago no devolvió una URL de pago");
+      }
+
+      const redirectUrl = mpData.init_point || mpData.sandbox_init_point;
+      clearCart();
+      window.location.href = redirectUrl;
+    } catch (err: any) {
+      console.error("Order error:", err);
+      toast.error("Error al procesar tu pedido. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -277,14 +255,8 @@ const Checkout = () => {
         {/* Left: Shipping + Payment */}
         <div className="lg:col-span-3 lg:border-r border-foreground/[0.08] p-6 md:p-12 space-y-10">
           {/* Contact */}
-          <motion.section
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-          >
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">
-              Información de contacto
-            </h2>
+          <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}>
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">Información de contacto</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Nombre *</Label>
@@ -308,14 +280,8 @@ const Checkout = () => {
           <Separator className="bg-foreground/[0.08]" />
 
           {/* Shipping */}
-          <motion.section
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}
-          >
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">
-              Dirección de envío
-            </h2>
+          <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}>
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">Dirección de envío</h2>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Dirección *</Label>
@@ -345,14 +311,8 @@ const Checkout = () => {
           <Separator className="bg-foreground/[0.08]" />
 
           {/* Payment info */}
-          <motion.section
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.2 }}
-          >
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">
-              Pago seguro
-            </h2>
+          <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.2 }}>
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">Pago seguro</h2>
             <div className="p-5 border border-foreground/[0.08] bg-secondary/20 space-y-3">
               <div className="flex items-center gap-3">
                 <CreditCard size={20} strokeWidth={1.5} className="text-accent" />
@@ -371,14 +331,8 @@ const Checkout = () => {
 
         {/* Right: Order summary */}
         <div className="lg:col-span-2 p-6 md:p-12 bg-secondary/30 border-t lg:border-t-0 border-foreground/[0.08]">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.15 }}
-          >
-            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">
-              Resumen del pedido
-            </h2>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.15 }}>
+            <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-6">Resumen del pedido</h2>
 
             <div className="space-y-0">
               {items.map((item) => (

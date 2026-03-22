@@ -91,6 +91,17 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
     if (selectedOrder?.id === orderId) setSelectedOrder(prev => prev ? { ...prev, status, managed_by_name: adminName, delivered_at: status === "delivered" ? new Date().toISOString() : prev.delivered_at } : null);
   };
 
+  const deleteOrder = async (orderId: string, orderNumber: string) => {
+    if (!confirm(`¿Eliminar pedido ${orderNumber}? Esta acción no se puede deshacer.`)) return;
+    // Delete items first, then order
+    await supabase.from("order_items").delete().eq("order_id", orderId);
+    const { error } = await supabase.from("orders").delete().eq("id", orderId);
+    if (error) { toast.error(error.message); return; }
+    await onAuditLog("delete_order", "order", orderNumber, { admin: adminName });
+    toast.success(`Pedido ${orderNumber} eliminado`);
+    if (selectedOrder?.id === orderId) setSelectedOrder(null);
+    fetchOrders();
+
   const filtered = orders.filter((o) => {
     const matchSearch = !search ||
       o.order_number.toLowerCase().includes(search.toLowerCase()) ||

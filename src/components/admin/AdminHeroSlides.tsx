@@ -115,7 +115,7 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
 
   const saveSettings = async () => {
     setSaving(true);
-    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    const [{ error: e1 }, { error: e2 }, { error: e3 }, { error: e4 }] = await Promise.all([
       supabase.from("site_settings").update({
         value: { title: heroTitle, subtitle: heroSubtitle, buttonText: heroButton, buttonLink: heroButtonLink } as any,
         updated_at: new Date().toISOString(),
@@ -124,8 +124,18 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         value: { tagline: brandTagline, footer_text: brandFooter } as any,
         updated_at: new Date().toISOString(),
       }).eq("key", "brand"),
+      supabase.from("site_settings").upsert({
+        key: "announcement_bar",
+        value: { text: announcementText } as any,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" }),
+      supabase.from("site_settings").upsert({
+        key: "collection_page",
+        value: { title: collectionTitle, description: collectionDesc } as any,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" }),
     ]);
-    if (e1 || e2) toast.error("Error al guardar");
+    if (e1 || e2 || e3 || e4) toast.error("Error al guardar");
     else toast.success("Configuración guardada");
     setSaving(false);
   };

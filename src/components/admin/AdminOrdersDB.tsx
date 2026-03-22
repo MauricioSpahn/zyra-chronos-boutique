@@ -101,6 +101,7 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
     toast.success(`Pedido ${orderNumber} eliminado`);
     if (selectedOrder?.id === orderId) setSelectedOrder(null);
     fetchOrders();
+  };
 
   const filtered = orders.filter((o) => {
     const matchSearch = !search ||

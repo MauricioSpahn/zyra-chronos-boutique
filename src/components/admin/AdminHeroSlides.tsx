@@ -54,6 +54,13 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
           setBrandTagline(val.tagline || "");
           setBrandFooter(val.footer_text || "");
         }
+        if (row.key === "announcement_bar") {
+          setAnnouncementText(val.text || "");
+        }
+        if (row.key === "collection_page") {
+          setCollectionTitle(val.title || "COLECCIÓN");
+          setCollectionDesc(val.description || "");
+        }
       }
     }
   };

@@ -469,6 +469,9 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
                 <button onClick={() => viewDetails(order)} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
                   <Eye size={14} />
                 </button>
+                <button onClick={(e) => { e.stopPropagation(); deleteOrder(order.id, order.order_number); }} className="p-2 text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 size={14} />
+                </button>
               </div>
             ))}
           </div>

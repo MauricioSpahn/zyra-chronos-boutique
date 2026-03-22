@@ -247,6 +247,9 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
                   <CheckCircle2 size={14} /> Marcar entregado
                 </button>
               )}
+              <button onClick={() => deleteOrder(selectedOrder.id, selectedOrder.order_number)} className="h-10 px-4 border border-destructive/30 text-destructive font-sans text-[10px] uppercase tracking-[0.15em] hover:bg-destructive hover:text-destructive-foreground transition-colors flex items-center justify-center gap-2">
+                <Trash2 size={14} /> Eliminar
+              </button>
             </div>
           </div>
 

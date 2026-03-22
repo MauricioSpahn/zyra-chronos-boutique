@@ -23,6 +23,9 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
   const [heroButtonLink, setHeroButtonLink] = useState("#collection");
   const [brandTagline, setBrandTagline] = useState("");
   const [brandFooter, setBrandFooter] = useState("");
+  const [announcementText, setAnnouncementText] = useState("ENVÍOS SIN CARGO A TODO EL PAÍS");
+  const [collectionTitle, setCollectionTitle] = useState("COLECCIÓN");
+  const [collectionDesc, setCollectionDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 

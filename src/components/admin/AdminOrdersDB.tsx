@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar, CheckCircle2,
+  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar, CheckCircle2, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 

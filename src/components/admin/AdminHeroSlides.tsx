@@ -196,6 +196,15 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         )}
       </div>
 
+      {/* Announcement Bar */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Barra de anuncios</p>
+        <div>
+          <label className="block font-sans text-xs text-muted-foreground mb-1">Texto (dejá vacío para ocultar)</label>
+          <input value={announcementText} onChange={(e) => setAnnouncementText(e.target.value)} className={inputClass} placeholder="ENVÍOS SIN CARGO A TODO EL PAÍS" />
+        </div>
+      </div>
+
       {/* Text settings */}
       <div className="space-y-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Textos del Hero</p>
@@ -216,6 +225,21 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
             <label className="block font-sans text-xs text-muted-foreground mb-1">Enlace del botón</label>
             <input value={heroButtonLink} onChange={(e) => setHeroButtonLink(e.target.value)} placeholder="#collection, /productos, https://..." className={inputClass} />
             <p className="font-mono text-[10px] text-muted-foreground mt-1">Ejemplos: #collection, /producto/zyra-one, https://link-externo.com</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Collection page */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Página de colección</p>
+        <div className="space-y-3">
+          <div>
+            <label className="block font-sans text-xs text-muted-foreground mb-1">Título</label>
+            <input value={collectionTitle} onChange={(e) => setCollectionTitle(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="block font-sans text-xs text-muted-foreground mb-1">Descripción</label>
+            <textarea value={collectionDesc} onChange={(e) => setCollectionDesc(e.target.value)} rows={4} className={`${inputClass} h-auto py-3`} placeholder="Texto introductorio de la colección..." />
           </div>
         </div>
       </div>

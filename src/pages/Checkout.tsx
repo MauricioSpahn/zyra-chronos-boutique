@@ -179,6 +179,7 @@ const Checkout = () => {
             name: item.name,
             image: item.image,
             price: item.price,
+              currency: item.currency || "ARS",
             quantity: item.quantity,
           })),
           subtotal: totalPrice,
@@ -205,6 +206,7 @@ const Checkout = () => {
               title: item.name,
               quantity: item.quantity,
               unit_price: item.price,
+              currency_id: item.currency || "ARS",
             })),
             payer: {
               email: form.email.trim(),

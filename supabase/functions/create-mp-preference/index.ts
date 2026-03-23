@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       title: `${item.title} | Orden ${order_number || ""}`.trim(),
       quantity: item.quantity,
       unit_price: Number(item.unit_price),
-      currency_id: "MXN",
+      currency_id: item.currency_id || item.currency || "ARS",
     }));
 
     const preferenceBody: any = {

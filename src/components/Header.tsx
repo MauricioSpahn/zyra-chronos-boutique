@@ -10,25 +10,93 @@ interface MobileCategory {
   id: string; name: string; slug: string; parent_id: string | null;
 }
 
+const MobileCategoryTree = ({
+  categories,
+  parentId,
+  depth,
+  expandedIds,
+  onToggle,
+  onClose,
+}: {
+  categories: MobileCategory[];
+  parentId: string | null;
+  depth: number;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onClose: () => void;
+}) => {
+  const children = categories.filter(c => c.parent_id === parentId);
+  if (!children.length) return null;
+  return (
+    <>
+      {children.map(cat => {
+        const hasKids = categories.some(c => c.parent_id === cat.id);
+        const isOpen = expandedIds.has(cat.id);
+        return (
+          <div key={cat.id}>
+            <div className="flex items-center" style={{ paddingLeft: `${depth * 1}rem` }}>
+              <Link
+                to={`/coleccion?cat=${cat.id}`}
+                onClick={onClose}
+                className="flex-1 py-2 font-sans text-[11px] uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {cat.name}
+              </Link>
+              {hasKids && (
+                <button onClick={() => onToggle(cat.id)} className="p-2 text-muted-foreground hover:text-foreground">
+                  {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              )}
+            </div>
+            {hasKids && isOpen && (
+              <MobileCategoryTree categories={categories} parentId={cat.id} depth={depth + 1} expandedIds={expandedIds} onToggle={onToggle} onClose={onClose} />
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+};
+
 const Header = () => {
   const [cartOpen, setCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [productsExpanded, setProductsExpanded] = useState(false);
+  const [expandedCatIds, setExpandedCatIds] = useState<Set<string>>(new Set());
   const { totalItems } = useCart();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [navPages, setNavPages] = useState<{ slug: string; title: string }[]>([]);
+  const [categories, setCategories] = useState<MobileCategory[]>([]);
 
   useEffect(() => {
     Promise.all([
       supabase.from("site_settings").select("value").eq("key", "brand").maybeSingle(),
       supabase.from("custom_pages").select("slug,title").eq("published", true).eq("show_in_nav", true).order("sort_order"),
-    ]).then(([brandRes, pagesRes]) => {
+      supabase.from("categories").select("id,name,slug,parent_id").order("name"),
+    ]).then(([brandRes, pagesRes, catsRes]) => {
       if (brandRes.data?.value) {
         const val = brandRes.data.value as any;
         if (val.logo_url) setLogoUrl(val.logo_url);
       }
       if (pagesRes.data) setNavPages(pagesRes.data);
+      if (catsRes.data) setCategories(catsRes.data as MobileCategory[]);
     });
   }, []);
+
+  const toggleCatExpand = (id: string) => {
+    setExpandedCatIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const closeMobile = () => {
+    setMobileMenuOpen(false);
+    setProductsExpanded(false);
+    setExpandedCatIds(new Set());
+  };
 
   return (
     <>
@@ -73,7 +141,10 @@ const Header = () => {
                 )}
               </button>
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                onClick={() => {
+                  if (mobileMenuOpen) closeMobile();
+                  else setMobileMenuOpen(true);
+                }}
                 className="md:hidden p-2 text-foreground hover:text-accent transition-colors"
                 aria-label="Menú"
               >
@@ -83,15 +154,59 @@ const Header = () => {
           </div>
 
           {mobileMenuOpen && (
-            <div className="md:hidden border-t border-foreground/[0.08] bg-background px-6 py-4 space-y-3">
-              <Link to="/coleccion" onClick={() => setMobileMenuOpen(false)} className="block font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors">
-                Productos
-              </Link>
-              <Link to="/contacto" onClick={() => setMobileMenuOpen(false)} className="block font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors">
+            <div className="md:hidden border-t border-foreground/[0.08] bg-background px-6 py-4 space-y-1">
+              {/* Productos: first tap expands categories, second tap navigates */}
+              <div>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => {
+                      if (productsExpanded) {
+                        // Second tap → navigate
+                        closeMobile();
+                        window.location.href = "/coleccion";
+                      } else {
+                        setProductsExpanded(true);
+                      }
+                    }}
+                    className="flex-1 text-left py-2 font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Productos
+                  </button>
+                  {categories.length > 0 && (
+                    <button
+                      onClick={() => setProductsExpanded(!productsExpanded)}
+                      className="p-2 text-muted-foreground hover:text-foreground"
+                    >
+                      {productsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                  )}
+                </div>
+                {productsExpanded && categories.length > 0 && (
+                  <div className="pl-2 border-l border-foreground/[0.06] ml-1 mb-2">
+                    <Link
+                      to="/coleccion"
+                      onClick={closeMobile}
+                      className="block py-2 font-sans text-[11px] uppercase tracking-[0.15em] text-accent hover:text-foreground transition-colors"
+                    >
+                      Ver todos
+                    </Link>
+                    <MobileCategoryTree
+                      categories={categories}
+                      parentId={null}
+                      depth={0}
+                      expandedIds={expandedCatIds}
+                      onToggle={toggleCatExpand}
+                      onClose={closeMobile}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <Link to="/contacto" onClick={closeMobile} className="block py-2 font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors">
                 Contacto
               </Link>
               {navPages.map(p => (
-                <Link key={p.slug} to={`/pagina/${p.slug}`} onClick={() => setMobileMenuOpen(false)} className="block font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors">
+                <Link key={p.slug} to={`/pagina/${p.slug}`} onClick={closeMobile} className="block py-2 font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors">
                   {p.title}
                 </Link>
               ))}

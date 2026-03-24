@@ -302,6 +302,7 @@ const AdminDashboard = () => {
         {tab === "orders" && <AdminOrdersDB inputClass={inputClass} adminUserId={adminUserId} adminName={adminName} onAuditLog={logAudit} />}
         {tab === "homepage" && <AdminHeroSlides inputClass={inputClass} />}
         {tab === "contact" && <AdminContact inputClass={inputClass} onAuditLog={logAudit} />}
+        {tab === "shipping" && <AdminShipping inputClass={inputClass} onAuditLog={logAudit} />}
         {tab === "audit" && <AdminAuditLog />}
         {tab === "account" && <AdminAccount inputClass={inputClass} adminUserId={adminUserId} onAuditLog={logAudit} />}
 

@@ -43,6 +43,10 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [showManual, setShowManual] = useState(false);
+  const [showConfirmEmail, setShowConfirmEmail] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [showManual, setShowManual] = useState(false);
 
   // Manual order form
   const [mFirstName, setMFirstName] = useState("");

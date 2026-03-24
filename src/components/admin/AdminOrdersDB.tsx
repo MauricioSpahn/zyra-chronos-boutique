@@ -354,6 +354,48 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
               <p className="font-mono text-lg text-foreground tabular-nums">Total: ${selectedOrder.total.toLocaleString()}</p>
             </div>
           </div>
+
+          {/* Payment confirmation email */}
+          <div className="border-t border-foreground/[0.08] pt-6">
+            {!showConfirmEmail ? (
+              <button
+                onClick={() => setShowConfirmEmail(true)}
+                className="h-10 px-6 bg-accent text-accent-foreground font-sans text-[10px] uppercase tracking-[0.15em] hover:bg-accent/80 transition-colors flex items-center gap-2"
+              >
+                <Mail size={14} /> Enviar confirmación de pago
+              </button>
+            ) : (
+              <div className="space-y-4 max-w-lg">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">Confirmar pago y enviar email</p>
+                <p className="font-sans text-xs text-muted-foreground">
+                  Se enviará un email a <span className="text-foreground">{selectedOrder.email}</span> confirmando que el pago fue recibido. Podés agregar un mensaje personalizado con detalles del envío o entrega.
+                </p>
+                <textarea
+                  value={confirmMessage}
+                  onChange={(e) => setConfirmMessage(e.target.value)}
+                  placeholder="Mensaje personalizado (opcional). Ej: Tu pedido será enviado mañana por correo argentino. Número de seguimiento: ..."
+                  rows={4}
+                  className={inputClass + " !h-auto py-3 resize-none"}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={sendPaymentConfirmation}
+                    disabled={sendingEmail}
+                    className="h-10 px-6 bg-accent text-accent-foreground font-sans text-[10px] uppercase tracking-[0.15em] hover:bg-accent/80 transition-colors disabled:opacity-40 flex items-center gap-2"
+                  >
+                    {sendingEmail ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    {sendingEmail ? "Enviando..." : "Enviar"}
+                  </button>
+                  <button
+                    onClick={() => { setShowConfirmEmail(false); setConfirmMessage(""); }}
+                    className="h-10 px-4 border border-foreground/[0.08] text-muted-foreground font-sans text-[10px] uppercase tracking-[0.15em] hover:text-foreground transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

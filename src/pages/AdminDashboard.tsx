@@ -363,6 +363,34 @@ const AdminDashboard = () => {
                       </select>
                     </div>
 
+                    {/* Badges */}
+                    <div className="border border-foreground/[0.08] p-4 space-y-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent">Destacados</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={prodFreeShipping}
+                            onChange={(e) => setProdFreeShipping(e.target.checked)}
+                            className="w-4 h-4 accent-accent"
+                          />
+                          <span className="font-sans text-sm text-foreground">Envío gratis</span>
+                        </label>
+                        <div className="space-y-1">
+                          <label className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">Descuento (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            placeholder="Ej: 15"
+                            value={prodDiscountPercent}
+                            onChange={(e) => setProdDiscountPercent(e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Main image — drag & drop + click */}
                     <div className="space-y-2">
                       <label className="block font-sans text-xs text-muted-foreground">Imagen principal</label>

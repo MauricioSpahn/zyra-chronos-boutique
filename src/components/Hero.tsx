@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import heroWatch from "@/assets/hero-watch.jpg";
 import { supabase } from "@/integrations/supabase/client";
 
 interface HeroSettings {
@@ -18,17 +17,11 @@ interface HeroSlide {
   sort_order: number;
 }
 
-const defaultSettings: HeroSettings = {
-  title: "Precisión sin ornamento",
-  subtitle: "Cada pieza Zyra es un ejercicio de reducción. Sin excesos. Sin concesiones. Solo el tiempo en su forma más pura.",
-  buttonText: "Explorar colección",
-  buttonLink: "#collection",
-};
-
 const Hero = () => {
-  const [settings, setSettings] = useState<HeroSettings>(defaultSettings);
+  const [settings, setSettings] = useState<HeroSettings | null>(null);
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -39,15 +32,18 @@ const Hero = () => {
       if (settingsRes.data?.value) {
         const val = settingsRes.data.value as Record<string, string>;
         setSettings({
-          title: val.title || defaultSettings.title,
-          subtitle: val.subtitle || defaultSettings.subtitle,
-          buttonText: val.buttonText || defaultSettings.buttonText,
-          buttonLink: val.buttonLink || defaultSettings.buttonLink,
+          title: val.title || "",
+          subtitle: val.subtitle || "",
+          buttonText: val.buttonText || "",
+          buttonLink: val.buttonLink || "#collection",
         });
+      } else {
+        setSettings({ title: "", subtitle: "", buttonText: "", buttonLink: "#collection" });
       }
       if (slidesRes.data && slidesRes.data.length > 0) {
         setSlides(slidesRes.data as HeroSlide[]);
       }
+      setLoaded(true);
     });
   }, []);
 
@@ -60,7 +56,6 @@ const Hero = () => {
   const next = useCallback(() => goTo(currentSlide + 1), [currentSlide, goTo]);
   const prev = useCallback(() => goTo(currentSlide - 1), [currentSlide, goTo]);
 
-  // Auto-advance for images (not videos)
   useEffect(() => {
     if (totalSlides <= 1) return;
     const current = slides[currentSlide];
@@ -69,6 +64,11 @@ const Hero = () => {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [currentSlide, totalSlides, next, slides]);
 
+  // Don't render anything until data is loaded — fixes the flash
+  if (!loaded || !settings) {
+    return <section className="h-[80vh] w-full bg-background" />;
+  }
+
   const currentMedia = slides[currentSlide];
 
   return (
@@ -76,12 +76,7 @@ const Hero = () => {
       <div className="absolute inset-0">
         <AnimatePresence mode="wait">
           {slides.length === 0 ? (
-            <motion.img
-              key="default"
-              src={heroWatch}
-              alt="ZYRA reloj de precisión"
-              className="w-full h-full object-cover object-center"
-            />
+            <motion.div key="empty" className="w-full h-full bg-secondary" />
           ) : currentMedia?.media_type === "video" ? (
             <motion.video
               key={currentMedia.id}
@@ -112,31 +107,17 @@ const Hero = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
       </div>
 
-      {/* Arrows */}
       {totalSlides > 1 && (
         <>
-          <button
-            onClick={prev}
-            className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-background/30 backdrop-blur-sm text-foreground/80 hover:bg-background/60 transition-colors"
-            aria-label="Anterior"
-          >
+          <button onClick={prev} className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-background/30 backdrop-blur-sm text-foreground/80 hover:bg-background/60 transition-colors" aria-label="Anterior">
             <ChevronLeft size={20} />
           </button>
-          <button
-            onClick={next}
-            className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-background/30 backdrop-blur-sm text-foreground/80 hover:bg-background/60 transition-colors"
-            aria-label="Siguiente"
-          >
+          <button onClick={next} className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-background/30 backdrop-blur-sm text-foreground/80 hover:bg-background/60 transition-colors" aria-label="Siguiente">
             <ChevronRight size={20} />
           </button>
-          {/* Dots */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
             {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => goTo(i)}
-                className={`w-2 h-2 transition-colors ${i === currentSlide ? "bg-foreground" : "bg-foreground/30"}`}
-              />
+              <button key={i} onClick={() => goTo(i)} className={`w-2 h-2 transition-colors ${i === currentSlide ? "bg-foreground" : "bg-foreground/30"}`} />
             ))}
           </div>
         </>
@@ -164,18 +145,20 @@ const Hero = () => {
         >
           {settings.subtitle}
         </motion.p>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1], delay: 0.7 }}
-        >
-          <a
-            href={settings.buttonLink}
-            className="inline-block mt-8 h-12 px-8 leading-[3rem] bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
+        {settings.buttonText && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.19, 1, 0.22, 1], delay: 0.7 }}
           >
-            {settings.buttonText}
-          </a>
-        </motion.div>
+            <a
+              href={settings.buttonLink}
+              className="inline-block mt-8 h-12 px-8 leading-[3rem] bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
+            >
+              {settings.buttonText}
+            </a>
+          </motion.div>
+        )}
       </div>
     </section>
   );

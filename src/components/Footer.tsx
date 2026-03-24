@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -6,6 +6,23 @@ import { toast } from "sonner";
 const Footer = () => {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
+  const [description, setDescription] = useState("Precisión mecánica destilada en cada pieza.\nPara quienes valoran la manufactura sobre el logo.");
+  const [copyright, setCopyright] = useState("© 2026 ZYRA. Todos los derechos reservados.");
+  const [navPages, setNavPages] = useState<{ slug: string; title: string }[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from("site_settings").select("value").eq("key", "footer").maybeSingle(),
+      supabase.from("custom_pages").select("slug,title").eq("published", true).eq("show_in_nav", true).order("sort_order"),
+    ]).then(([footerRes, pagesRes]) => {
+      if (footerRes.data?.value) {
+        const val = footerRes.data.value as any;
+        if (val.description) setDescription(val.description);
+        if (val.copyright) setCopyright(val.copyright);
+      }
+      if (pagesRes.data) setNavPages(pagesRes.data);
+    });
+  }, []);
 
   const handleNewsletter = async () => {
     if (!email.trim() || !email.includes("@")) {
@@ -32,9 +49,8 @@ const Footer = () => {
           <span className="font-mono text-lg tracking-[0.3em] font-semibold text-foreground">
             ZYRA
           </span>
-          <p className="mt-4 font-sans text-sm text-muted-foreground leading-relaxed max-w-xs">
-            Precisión mecánica destilada en cada pieza.
-            Para quienes valoran la manufactura sobre el logo.
+          <p className="mt-4 font-sans text-sm text-muted-foreground leading-relaxed max-w-xs whitespace-pre-line">
+            {description}
           </p>
         </div>
 
@@ -43,8 +59,15 @@ const Footer = () => {
             Navegación
           </span>
           <ul className="mt-4 space-y-3">
-            <li><Link to="/coleccion" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Colección</Link></li>
+            <li><Link to="/coleccion" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Productos</Link></li>
             <li><Link to="/contacto" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Contacto</Link></li>
+            {navPages.map(p => (
+              <li key={p.slug}>
+                <Link to={`/pagina/${p.slug}`} className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">
+                  {p.title}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -74,7 +97,7 @@ const Footer = () => {
 
       <div className="mt-16 pt-8 border-t border-foreground/[0.08] flex flex-col md:flex-row items-center justify-between gap-4">
         <span className="font-mono text-[10px] text-muted-foreground tracking-wider">
-          © 2026 ZYRA. Todos los derechos reservados.
+          {copyright}
         </span>
         <div className="flex items-center gap-6">
           {["Privacidad", "Términos"].map((item) => (

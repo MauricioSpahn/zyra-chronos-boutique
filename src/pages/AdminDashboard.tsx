@@ -169,12 +169,31 @@ const AdminDashboard = () => {
   // Categories helpers
   const getRootCategories = () => categories.filter(c => !c.parent_id);
   const getSubcategories = (parentId: string) => categories.filter(c => c.parent_id === parentId);
-  const getCategoryLabel = (cat: Category): string => {
-    if (cat.parent_id) {
-      const parent = categories.find(c => c.id === cat.parent_id);
-      return parent ? `${parent.name} → ${cat.name}` : cat.name;
+
+  // Build full path label recursively
+  const getCategoryPath = (cat: Category): string => {
+    const parts: string[] = [cat.name];
+    let current = cat;
+    while (current.parent_id) {
+      const parent = categories.find(c => c.id === current.parent_id);
+      if (!parent) break;
+      parts.unshift(parent.name);
+      current = parent;
     }
-    return cat.name;
+    return parts.join(" → ");
+  };
+
+  // Get all descendant IDs to prevent circular references
+  const getDescendantIds = (parentId: string): string[] => {
+    const children = categories.filter(c => c.parent_id === parentId);
+    return children.reduce<string[]>((acc, c) => [...acc, c.id, ...getDescendantIds(c.id)], []);
+  };
+
+  // All categories that can be a parent for the current editing category
+  const getAvailableParents = () => {
+    if (!editingId) return categories;
+    const blocked = new Set([editingId, ...getDescendantIds(editingId)]);
+    return categories.filter(c => !blocked.has(c.id));
   };
 
   // CRUD Categories

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar, CheckCircle2, Trash2,
+  Search, Eye, ChevronLeft, Download, Plus, X, FileText, Calendar, CheckCircle2, Trash2, Mail, Loader2, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +43,9 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [showManual, setShowManual] = useState(false);
+  const [showConfirmEmail, setShowConfirmEmail] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Manual order form
   const [mFirstName, setMFirstName] = useState("");
@@ -101,6 +104,53 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
     toast.success(`Pedido ${orderNumber} eliminado`);
     if (selectedOrder?.id === orderId) setSelectedOrder(null);
     fetchOrders();
+  };
+
+  const sendPaymentConfirmation = async () => {
+    if (!selectedOrder) return;
+    setSendingEmail(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-order-email", {
+        body: {
+          type: "payment_confirmed",
+          order_number: selectedOrder.order_number,
+          email: selectedOrder.email,
+          first_name: selectedOrder.first_name,
+          last_name: selectedOrder.last_name,
+          subtotal: selectedOrder.subtotal,
+          shipping_cost: selectedOrder.shipping_cost,
+          total: selectedOrder.total,
+          address: selectedOrder.address_line1,
+          city: selectedOrder.city,
+          state: selectedOrder.state,
+          postal_code: selectedOrder.postal_code,
+          items: orderItems.map(i => ({ name: i.product_name, price: i.price, quantity: i.quantity })),
+          custom_message: confirmMessage.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+
+      // Update payment status
+      await supabase.from("orders").update({
+        payment_status: "paid",
+        status: selectedOrder.status === "pending" ? "confirmed" : selectedOrder.status,
+        updated_at: new Date().toISOString(),
+        managed_by: adminUserId,
+        managed_by_name: adminName,
+      }).eq("id", selectedOrder.id);
+
+      await onAuditLog("send_payment_confirmation", "order", selectedOrder.order_number, { admin: adminName });
+      toast.success("Email de confirmación de pago enviado");
+      setShowConfirmEmail(false);
+      setConfirmMessage("");
+      fetchOrders();
+      setSelectedOrder(prev => prev ? { ...prev, payment_status: "paid", status: prev.status === "pending" ? "confirmed" : prev.status } : null);
+    } catch (err: any) {
+      console.error("Email error:", err);
+      toast.error("Error enviando email: " + (err.message || "Error desconocido"));
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const filtered = orders.filter((o) => {
@@ -303,6 +353,48 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
               <p className="font-sans text-sm text-muted-foreground">Envío: <span className="font-mono tabular-nums text-foreground">${selectedOrder.shipping_cost.toLocaleString()}</span></p>
               <p className="font-mono text-lg text-foreground tabular-nums">Total: ${selectedOrder.total.toLocaleString()}</p>
             </div>
+          </div>
+
+          {/* Payment confirmation email */}
+          <div className="border-t border-foreground/[0.08] pt-6">
+            {!showConfirmEmail ? (
+              <button
+                onClick={() => setShowConfirmEmail(true)}
+                className="h-10 px-6 bg-accent text-accent-foreground font-sans text-[10px] uppercase tracking-[0.15em] hover:bg-accent/80 transition-colors flex items-center gap-2"
+              >
+                <Mail size={14} /> Enviar confirmación de pago
+              </button>
+            ) : (
+              <div className="space-y-4 max-w-lg">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">Confirmar pago y enviar email</p>
+                <p className="font-sans text-xs text-muted-foreground">
+                  Se enviará un email a <span className="text-foreground">{selectedOrder.email}</span> confirmando que el pago fue recibido. Podés agregar un mensaje personalizado con detalles del envío o entrega.
+                </p>
+                <textarea
+                  value={confirmMessage}
+                  onChange={(e) => setConfirmMessage(e.target.value)}
+                  placeholder="Mensaje personalizado (opcional). Ej: Tu pedido será enviado mañana por correo argentino. Número de seguimiento: ..."
+                  rows={4}
+                  className={inputClass + " !h-auto py-3 resize-none"}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={sendPaymentConfirmation}
+                    disabled={sendingEmail}
+                    className="h-10 px-6 bg-accent text-accent-foreground font-sans text-[10px] uppercase tracking-[0.15em] hover:bg-accent/80 transition-colors disabled:opacity-40 flex items-center gap-2"
+                  >
+                    {sendingEmail ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    {sendingEmail ? "Enviando..." : "Enviar"}
+                  </button>
+                  <button
+                    onClick={() => { setShowConfirmEmail(false); setConfirmMessage(""); }}
+                    className="h-10 px-4 border border-foreground/[0.08] text-muted-foreground font-sans text-[10px] uppercase tracking-[0.15em] hover:text-foreground transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

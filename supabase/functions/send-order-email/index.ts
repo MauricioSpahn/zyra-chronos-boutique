@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
     const { type = "purchase" } = body;
 
     const gmailUser = "administracion.zyra@gmail.com";
-    const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
+    const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD")?.replace(/\s+/g, "");
     if (!gmailPass) {
       throw new Error("GMAIL_APP_PASSWORD not configured");
     }

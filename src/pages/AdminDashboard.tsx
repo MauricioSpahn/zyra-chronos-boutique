@@ -387,7 +387,7 @@ const AdminDashboard = () => {
                       <input placeholder="Unidades" type="number" value={prodUnits} onChange={(e) => setProdUnits(e.target.value)} className={inputClass} />
                       <select value={prodCatId} onChange={(e) => setProdCatId(e.target.value)} className={inputClass}>
                         <option value="">Sin categoría</option>
-                        {categories.map((c) => <option key={c.id} value={c.id}>{getCategoryLabel(c)}</option>)}
+                        {categories.map((c) => <option key={c.id} value={c.id}>{getCategoryPath(c)}</option>)}
                       </select>
                     </div>
 

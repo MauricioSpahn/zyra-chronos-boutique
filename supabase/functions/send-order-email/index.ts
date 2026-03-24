@@ -20,10 +20,11 @@ interface OrderEmailPayload {
   city: string;
   state: string;
   postal_code: string;
-  type?: "purchase" | "newsletter";
+  type?: "purchase" | "newsletter" | "payment_confirmed";
+  custom_message?: string;
 }
 
-function buildPurchaseEmail(data: OrderEmailPayload): string {
+function buildPurchaseEmail(data: OrderEmailPayload, whatsappUrl: string, instagramUrl: string): string {
   const itemsHtml = data.items.map(item => `
     <tr>
       <td style="padding:12px 0;border-bottom:1px solid #2a2a2a;font-family:'Courier New',monospace;font-size:13px;color:#e0e0e0;">
@@ -54,13 +55,26 @@ function buildPurchaseEmail(data: OrderEmailPayload): string {
 
         <!-- Thank you -->
         <tr><td style="padding:48px 32px 24px;">
-          <h2 style="margin:0 0 16px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#6B7CFF;">Confirmación de compra</h2>
+          <h2 style="margin:0 0 16px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#6B7CFF;">Pedido recibido</h2>
           <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:22px;color:#f0f0f0;font-weight:600;">
             ¡Gracias por tu compra, ${data.first_name}!
           </p>
-          <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#888;line-height:1.6;">
-            Tu pedido ha sido confirmado y está siendo procesado. A continuación encontrarás los detalles de tu orden.
+          <p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:14px;color:#888;line-height:1.6;">
+            Tu pedido ha sido registrado correctamente. Estamos esperando la confirmación de tu pago, lo cual puede demorar hasta <strong style="color:#e0e0e0;">72 horas hábiles</strong> (aunque puede ser menos).
           </p>
+          <p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:14px;color:#888;line-height:1.6;">
+            Una vez recibido el pago, te enviaremos toda la información con respecto a la entrega de tu pedido.
+          </p>
+          <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#888;line-height:1.6;">
+            Si tenés alguna consulta, no dudes en contactarnos por nuestro canal de WhatsApp. ¡Estamos para ayudarte!
+          </p>
+        </td></tr>
+
+        <!-- WhatsApp CTA -->
+        <tr><td style="padding:0 32px 24px;text-align:center;">
+          <a href="${whatsappUrl}" style="display:inline-block;padding:14px 32px;background-color:#25D366;color:#ffffff;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;text-decoration:none;font-weight:600;">
+            Contactar por WhatsApp
+          </a>
         </td></tr>
 
         <!-- Order number -->
@@ -129,10 +143,104 @@ function buildPurchaseEmail(data: OrderEmailPayload): string {
           <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
             <tr>
               <td style="padding:0 12px;">
-                <a href="https://instagram.com/zyra" style="color:#6B7CFF;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">INSTAGRAM</a>
+                <a href="${instagramUrl}" style="color:#6B7CFF;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">INSTAGRAM</a>
               </td>
               <td style="padding:0 12px;">
-                <a href="https://wa.me/" style="color:#25D366;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">WHATSAPP</a>
+                <a href="${whatsappUrl}" style="color:#25D366;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">WHATSAPP</a>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:24px 32px;border-top:1px solid #2a2a2a;text-align:center;">
+          <p style="margin:0;font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:#555;">
+            © 2026 ZYRA. TODOS LOS DERECHOS RESERVADOS.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildPaymentConfirmedEmail(data: OrderEmailPayload, whatsappUrl: string, instagramUrl: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#1a1a1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        
+        <!-- Header -->
+        <tr><td style="padding:40px 32px;text-align:center;border-bottom:1px solid #2a2a2a;">
+          <h1 style="margin:0;font-family:'Courier New',monospace;font-size:28px;letter-spacing:12px;color:#f0f0f0;font-weight:600;">ZYRA</h1>
+        </td></tr>
+
+        <!-- Confirmation -->
+        <tr><td style="padding:48px 32px 24px;">
+          <h2 style="margin:0 0 16px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#6B7CFF;">Pago confirmado ✓</h2>
+          <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:22px;color:#f0f0f0;font-weight:600;">
+            ¡Tu pago ha sido confirmado, ${data.first_name}!
+          </p>
+          ${data.custom_message ? `
+          <div style="margin:24px 0;padding:20px 24px;background-color:#222;border-left:3px solid #6B7CFF;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#e0e0e0;line-height:1.6;white-space:pre-line;">${data.custom_message}</p>
+          </div>` : `
+          <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#888;line-height:1.6;">
+            Hemos recibido tu pago correctamente. Tu pedido está siendo preparado y te enviaremos la información de envío a la brevedad.
+          </p>`}
+        </td></tr>
+
+        <!-- Order number -->
+        <tr><td style="padding:0 32px 32px;">
+          <table width="100%" style="background-color:#222;padding:20px 24px;">
+            <tr>
+              <td style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#888;">Orden Nº</td>
+              <td style="font-family:'Courier New',monospace;font-size:18px;color:#f0f0f0;text-align:right;letter-spacing:2px;">#${data.order_number}</td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- Totals -->
+        <tr><td style="padding:0 32px 32px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:8px 0;font-family:Arial,sans-serif;font-size:13px;color:#888;">Subtotal</td>
+              <td style="padding:8px 0;font-family:'Courier New',monospace;font-size:13px;color:#e0e0e0;text-align:right;">$${data.subtotal.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-family:Arial,sans-serif;font-size:13px;color:#888;">Envío</td>
+              <td style="padding:8px 0;font-family:'Courier New',monospace;font-size:13px;color:#e0e0e0;text-align:right;">${data.shipping_cost === 0 ? "Gratis" : "$" + data.shipping_cost.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style="padding:16px 0 0;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#888;border-top:1px solid #2a2a2a;">Total</td>
+              <td style="padding:16px 0 0;font-family:'Courier New',monospace;font-size:22px;color:#f0f0f0;text-align:right;border-top:1px solid #2a2a2a;">$${data.total.toLocaleString()}</td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- Receipt link -->
+        <tr><td style="padding:0 32px 32px;text-align:center;">
+          <a href="https://zyra-chronos-boutique.lovable.app/recibo/${data.order_number}" style="display:inline-block;padding:14px 32px;background-color:#6B7CFF;color:#ffffff;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;text-decoration:none;font-weight:600;">
+            Ver comprobante
+          </a>
+        </td></tr>
+
+        <!-- Social -->
+        <tr><td style="padding:32px;border-top:1px solid #2a2a2a;text-align:center;">
+          <p style="margin:0 0 16px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#888;">Seguinos en redes</p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+              <td style="padding:0 12px;">
+                <a href="${instagramUrl}" style="color:#6B7CFF;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">INSTAGRAM</a>
+              </td>
+              <td style="padding:0 12px;">
+                <a href="${whatsappUrl}" style="color:#25D366;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">WHATSAPP</a>
               </td>
             </tr>
           </table>
@@ -155,7 +263,7 @@ function buildPurchaseEmail(data: OrderEmailPayload): string {
 </html>`;
 }
 
-function buildNewsletterWelcomeEmail(): string {
+function buildNewsletterWelcomeEmail(instagramUrl: string, whatsappUrl: string): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -181,10 +289,10 @@ function buildNewsletterWelcomeEmail(): string {
           <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
             <tr>
               <td style="padding:0 12px;">
-                <a href="https://instagram.com/zyra" style="color:#6B7CFF;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">INSTAGRAM</a>
+                <a href="${instagramUrl}" style="color:#6B7CFF;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">INSTAGRAM</a>
               </td>
               <td style="padding:0 12px;">
-                <a href="https://wa.me/" style="color:#25D366;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">WHATSAPP</a>
+                <a href="${whatsappUrl}" style="color:#25D366;font-family:'Courier New',monospace;font-size:12px;text-decoration:none;letter-spacing:2px;">WHATSAPP</a>
               </td>
             </tr>
           </table>
@@ -214,7 +322,6 @@ Deno.serve(async (req) => {
       throw new Error("GMAIL_APP_PASSWORD not configured");
     }
 
-    // Get contact info for social links
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -229,6 +336,7 @@ Deno.serve(async (req) => {
     const contact = contactSettings?.value as any || {};
     const instagramUrl = contact.instagram || "https://instagram.com/zyra";
     const whatsappNum = contact.whatsapp || "";
+    const whatsappUrl = whatsappNum ? `https://wa.me/${whatsappNum}` : "https://wa.me/";
 
     let html: string;
     let subject: string;
@@ -237,22 +345,17 @@ Deno.serve(async (req) => {
     if (type === "newsletter") {
       recipientEmail = body.email;
       subject = "Bienvenido al universo ZYRA";
-      html = buildNewsletterWelcomeEmail();
-      // Replace social links
-      html = html.replace('href="https://instagram.com/zyra"', `href="${instagramUrl}"`);
-      if (whatsappNum) {
-        html = html.replace('href="https://wa.me/"', `href="https://wa.me/${whatsappNum}"`);
-      }
+      html = buildNewsletterWelcomeEmail(instagramUrl, whatsappUrl);
+    } else if (type === "payment_confirmed") {
+      const data = body as OrderEmailPayload;
+      recipientEmail = data.email;
+      subject = `ZYRA — Pago confirmado · Orden #${data.order_number}`;
+      html = buildPaymentConfirmedEmail(data, whatsappUrl, instagramUrl);
     } else {
       const data = body as OrderEmailPayload;
       recipientEmail = data.email;
-      subject = `ZYRA — Confirmación de compra #${data.order_number}`;
-      html = buildPurchaseEmail(data);
-      // Replace social links
-      html = html.replace('href="https://instagram.com/zyra"', `href="${instagramUrl}"`);
-      if (whatsappNum) {
-        html = html.replace('href="https://wa.me/"', `href="https://wa.me/${whatsappNum}"`);
-      }
+      subject = `ZYRA — Pedido recibido #${data.order_number}`;
+      html = buildPurchaseEmail(data, whatsappUrl, instagramUrl);
     }
 
     const client = new SMTPClient({

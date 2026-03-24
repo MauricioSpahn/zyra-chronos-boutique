@@ -19,7 +19,7 @@ interface Product {
   currency: string;
 }
 
-type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact";
+type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact" | "shipping";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -252,6 +252,7 @@ const AdminDashboard = () => {
     { key: "categories" as Tab, icon: FolderOpen, label: "Categorías" },
     { key: "homepage" as Tab, icon: Home, label: "Inicio" },
     { key: "contact" as Tab, icon: Phone, label: "Contacto" },
+    { key: "shipping" as Tab, icon: Truck, label: "Envío" },
     { key: "audit" as Tab, icon: History, label: "Registro" },
     { key: "account" as Tab, icon: Settings, label: "Cuenta" },
   ];

@@ -16,7 +16,7 @@ interface Product {
   id: string; name: string; slug: string; price: number; reference: string;
   units_available: number; category_id: string | null; image_url: string;
   description: string; specs: Record<string, string>; gallery: string[];
-  currency: string;
+  currency: string; badge_free_shipping: boolean; badge_discount_percent: number | null;
 }
 
 type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact" | "shipping";
@@ -50,6 +50,8 @@ const AdminDashboard = () => {
   const [prodGallery, setProdGallery] = useState<string[]>([]);
   const [prodSpecs, setProdSpecs] = useState("");
   const [prodCurrency, setProdCurrency] = useState("USD");
+  const [prodFreeShipping, setProdFreeShipping] = useState(false);
+  const [prodDiscountPercent, setProdDiscountPercent] = useState("");
   const [uploading, setUploading] = useState(false);
 
   // Drag states
@@ -94,6 +96,7 @@ const AdminDashboard = () => {
     setProdName(""); setProdSlug(""); setProdPrice(""); setProdRef("");
     setProdUnits(""); setProdCatId(""); setProdDesc(""); setProdImage("");
     setProdGallery([]); setProdSpecs(""); setProdCurrency("USD");
+    setProdFreeShipping(false); setProdDiscountPercent("");
   };
 
   const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -211,6 +214,8 @@ const AdminDashboard = () => {
       units_available: Number(prodUnits) || 0, category_id: prodCatId || null,
       description: prodDesc, image_url: prodImage, specs, gallery: prodGallery,
       currency: prodCurrency,
+      badge_free_shipping: prodFreeShipping,
+      badge_discount_percent: prodDiscountPercent ? Number(prodDiscountPercent) : null,
     };
     if (editingId) {
       const { error } = await supabase.from("products").update(payload).eq("id", editingId);
@@ -240,7 +245,10 @@ const AdminDashboard = () => {
     setProdUnits(String(p.units_available)); setProdCatId(p.category_id || "");
     setProdDesc(p.description); setProdImage(p.image_url);
     setProdGallery(Array.isArray(p.gallery) ? p.gallery : []);
-    setProdSpecs(JSON.stringify(p.specs, null, 2)); setProdCurrency(p.currency || "USD"); setShowForm(true);
+    setProdSpecs(JSON.stringify(p.specs, null, 2)); setProdCurrency(p.currency || "USD");
+    setProdFreeShipping(p.badge_free_shipping || false);
+    setProdDiscountPercent(p.badge_discount_percent ? String(p.badge_discount_percent) : "");
+    setShowForm(true);
   };
 
   const inputClass = "w-full h-12 px-3 bg-secondary border border-foreground/[0.08] font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent rounded-none";

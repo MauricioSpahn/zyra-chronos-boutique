@@ -46,7 +46,6 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
   const [showConfirmEmail, setShowConfirmEmail] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [showManual, setShowManual] = useState(false);
 
   // Manual order form
   const [mFirstName, setMFirstName] = useState("");

@@ -106,6 +106,53 @@ const AdminOrdersDB = ({ inputClass, adminUserId, adminName, onAuditLog }: Props
     fetchOrders();
   };
 
+  const sendPaymentConfirmation = async () => {
+    if (!selectedOrder) return;
+    setSendingEmail(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-order-email", {
+        body: {
+          type: "payment_confirmed",
+          order_number: selectedOrder.order_number,
+          email: selectedOrder.email,
+          first_name: selectedOrder.first_name,
+          last_name: selectedOrder.last_name,
+          subtotal: selectedOrder.subtotal,
+          shipping_cost: selectedOrder.shipping_cost,
+          total: selectedOrder.total,
+          address: selectedOrder.address_line1,
+          city: selectedOrder.city,
+          state: selectedOrder.state,
+          postal_code: selectedOrder.postal_code,
+          items: orderItems.map(i => ({ name: i.product_name, price: i.price, quantity: i.quantity })),
+          custom_message: confirmMessage.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+
+      // Update payment status
+      await supabase.from("orders").update({
+        payment_status: "paid",
+        status: selectedOrder.status === "pending" ? "confirmed" : selectedOrder.status,
+        updated_at: new Date().toISOString(),
+        managed_by: adminUserId,
+        managed_by_name: adminName,
+      }).eq("id", selectedOrder.id);
+
+      await onAuditLog("send_payment_confirmation", "order", selectedOrder.order_number, { admin: adminName });
+      toast.success("Email de confirmación de pago enviado");
+      setShowConfirmEmail(false);
+      setConfirmMessage("");
+      fetchOrders();
+      setSelectedOrder(prev => prev ? { ...prev, payment_status: "paid", status: prev.status === "pending" ? "confirmed" : prev.status } : null);
+    } catch (err: any) {
+      console.error("Email error:", err);
+      toast.error("Error enviando email: " + (err.message || "Error desconocido"));
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const filtered = orders.filter((o) => {
     const matchSearch = !search ||
       o.order_number.toLowerCase().includes(search.toLowerCase()) ||

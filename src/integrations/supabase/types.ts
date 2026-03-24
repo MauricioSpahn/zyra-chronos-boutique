@@ -332,6 +332,8 @@ export type Database = {
       }
       products: {
         Row: {
+          badge_discount_percent: number | null
+          badge_free_shipping: boolean
           category_id: string | null
           created_at: string
           currency: string
@@ -347,6 +349,8 @@ export type Database = {
           units_available: number
         }
         Insert: {
+          badge_discount_percent?: number | null
+          badge_free_shipping?: boolean
           category_id?: string | null
           created_at?: string
           currency?: string
@@ -362,6 +366,8 @@ export type Database = {
           units_available?: number
         }
         Update: {
+          badge_discount_percent?: number | null
+          badge_free_shipping?: boolean
           category_id?: string | null
           created_at?: string
           currency?: string

@@ -16,6 +16,8 @@ interface DBProduct {
   units_available: number;
   category_id: string | null;
   currency: string;
+  badge_free_shipping: boolean;
+  badge_discount_percent: number | null;
 }
 
 interface DBCategory {
@@ -148,6 +150,8 @@ const ProductGrid = () => {
               }}
               index={i}
               currency={product.currency}
+              badgeFreeShipping={product.badge_free_shipping}
+              badgeDiscountPercent={product.badge_discount_percent}
             />
           ))}
         </div>

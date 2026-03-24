@@ -12,6 +12,7 @@ import Checkout from "./pages/Checkout.tsx";
 import Contact from "./pages/Contact.tsx";
 import Collection from "./pages/Collection.tsx";
 import Receipt from "./pages/Receipt.tsx";
+import CustomPage from "./pages/CustomPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => {
             <Route path="/producto/:id" element={<ProductDetail />} />
             <Route path="/contacto" element={<Contact />} />
             <Route path="/coleccion" element={<Collection />} />
+            <Route path="/pagina/:slug" element={<CustomPage />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/checkout" element={<Checkout />} />

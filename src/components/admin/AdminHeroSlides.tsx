@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Trash2, GripVertical, Film, Image, X } from "lucide-react";
+import { Upload, Trash2, GripVertical, Film, Image, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface HeroSlide {
@@ -26,8 +26,10 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
   const [announcementText, setAnnouncementText] = useState("ENVÍOS SIN CARGO A TODO EL PAÍS");
   const [collectionTitle, setCollectionTitle] = useState("COLECCIÓN");
   const [collectionDesc, setCollectionDesc] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchSlides();
@@ -53,6 +55,7 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         if (row.key === "brand") {
           setBrandTagline(val.tagline || "");
           setBrandFooter(val.footer_text || "");
+          setLogoUrl(val.logo_url || "");
         }
         if (row.key === "announcement_bar") {
           setAnnouncementText(val.text || "");
@@ -121,7 +124,7 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         updated_at: new Date().toISOString(),
       }).eq("key", "hero"),
       supabase.from("site_settings").update({
-        value: { tagline: brandTagline, footer_text: brandFooter } as any,
+        value: { tagline: brandTagline, footer_text: brandFooter, logo_url: logoUrl } as any,
         updated_at: new Date().toISOString(),
       }).eq("key", "brand"),
       supabase.from("site_settings").upsert({
@@ -248,6 +251,27 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
       <div className="space-y-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Marca</p>
         <div className="space-y-3">
+          <div>
+            <label className="block font-sans text-xs text-muted-foreground mb-1">Logo (al lado de ZYRA en el header)</label>
+            <div className="flex items-center gap-3">
+              {logoUrl && <img src={logoUrl} alt="Logo" className="h-10 w-auto object-contain bg-secondary p-1" />}
+              <button type="button" onClick={() => logoRef.current?.click()} className="h-10 px-4 border border-foreground/[0.08] text-muted-foreground hover:text-foreground font-mono text-[10px] uppercase tracking-wider transition-colors flex items-center gap-2">
+                <ImageIcon size={14} /> {logoUrl ? "Cambiar" : "Subir logo"}
+              </button>
+              {logoUrl && <button onClick={() => setLogoUrl("")} className="p-2 text-muted-foreground hover:text-destructive"><X size={14} /></button>}
+            </div>
+            <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const ext = file.name.split(".").pop();
+              const path = `brand/logo-${Date.now()}.${ext}`;
+              const { error } = await supabase.storage.from("hero").upload(path, file, { cacheControl: "3600", upsert: false });
+              if (error) { toast.error(error.message); return; }
+              const { data: { publicUrl } } = supabase.storage.from("hero").getPublicUrl(path);
+              setLogoUrl(publicUrl);
+              toast.success("Logo subido");
+            }} />
+          </div>
           <div>
             <label className="block font-sans text-xs text-muted-foreground mb-1">Tagline</label>
             <input value={brandTagline} onChange={(e) => setBrandTagline(e.target.value)} className={inputClass} />

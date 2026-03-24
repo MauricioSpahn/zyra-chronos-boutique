@@ -10,6 +10,9 @@ import AdminAccount from "@/components/admin/AdminAccount";
 import AdminAuditLog from "@/components/admin/AdminAuditLog";
 import AdminContact from "@/components/admin/AdminContact";
 import AdminShipping from "@/components/admin/AdminShipping";
+import AdminFeaturedSections from "@/components/admin/AdminFeaturedSections";
+import AdminFooter from "@/components/admin/AdminFooter";
+import AdminCustomPages from "@/components/admin/AdminCustomPages";
 
 interface Category { id: string; name: string; slug: string; parent_id: string | null; }
 interface Product {
@@ -19,7 +22,7 @@ interface Product {
   currency: string; badge_free_shipping: boolean; badge_discount_percent: number | null;
 }
 
-type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact" | "shipping";
+type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "featured" | "footer" | "pages" | "account" | "audit" | "contact" | "shipping";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -259,6 +262,9 @@ const AdminDashboard = () => {
     { key: "products" as Tab, icon: Package, label: "Productos" },
     { key: "categories" as Tab, icon: FolderOpen, label: "Categorías" },
     { key: "homepage" as Tab, icon: Home, label: "Inicio" },
+    { key: "featured" as Tab, icon: Package, label: "Destacados" },
+    { key: "footer" as Tab, icon: Home, label: "Footer" },
+    { key: "pages" as Tab, icon: FolderOpen, label: "Páginas" },
     { key: "contact" as Tab, icon: Phone, label: "Contacto" },
     { key: "shipping" as Tab, icon: Truck, label: "Envío" },
     { key: "audit" as Tab, icon: History, label: "Registro" },
@@ -309,6 +315,9 @@ const AdminDashboard = () => {
         {tab === "analytics" && <AdminAnalytics />}
         {tab === "orders" && <AdminOrdersDB inputClass={inputClass} adminUserId={adminUserId} adminName={adminName} onAuditLog={logAudit} />}
         {tab === "homepage" && <AdminHeroSlides inputClass={inputClass} />}
+        {tab === "featured" && <AdminFeaturedSections inputClass={inputClass} />}
+        {tab === "footer" && <AdminFooter inputClass={inputClass} />}
+        {tab === "pages" && <AdminCustomPages inputClass={inputClass} />}
         {tab === "contact" && <AdminContact inputClass={inputClass} onAuditLog={logAudit} />}
         {tab === "shipping" && <AdminShipping inputClass={inputClass} onAuditLog={logAudit} />}
         {tab === "audit" && <AdminAuditLog />}

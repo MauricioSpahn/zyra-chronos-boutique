@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import ProductGrid from "@/components/ProductGrid";
+import FeaturedSections from "@/components/FeaturedSections";
 import Footer from "@/components/Footer";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import { usePageTracking } from "@/hooks/usePageTracking";
@@ -13,6 +14,7 @@ const Index = () => {
       <Header />
       <main className="pt-24">
         <Hero />
+        <FeaturedSections />
         <ProductGrid />
       </main>
       <Footer />

@@ -360,8 +360,8 @@ const AdminDashboard = () => {
                     <input placeholder="Slug (auto)" value={catSlug} onChange={(e) => setCatSlug(e.target.value)} className={inputClass} />
                     <select value={catParentId} onChange={(e) => setCatParentId(e.target.value)} className={inputClass}>
                       <option value="">Sin categoría padre (raíz)</option>
-                      {getRootCategories().filter(c => c.id !== editingId).map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                      {getAvailableParents().map((c) => (
+                        <option key={c.id} value={c.id}>{getCategoryPath(c)}</option>
                       ))}
                     </select>
                     <div className="flex flex-col sm:flex-row gap-3">
@@ -495,45 +495,7 @@ const AdminDashboard = () => {
                 {/* Category tree view */}
                 <div className="space-y-1">
                   {getRootCategories().length === 0 && <p className="font-sans text-sm text-muted-foreground">Sin categorías</p>}
-                  {getRootCategories().map((cat) => {
-                    const subs = getSubcategories(cat.id);
-                    return (
-                      <div key={cat.id}>
-                        <div className="flex items-center justify-between p-4 border border-foreground/[0.08]">
-                          <div className="flex items-center gap-2">
-                            <FolderOpen size={14} className="text-accent flex-shrink-0" />
-                            <div>
-                              <p className="font-sans text-sm text-foreground">{cat.name}</p>
-                              <p className="font-mono text-[10px] text-muted-foreground">{cat.slug}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => editCategory(cat)} className="p-2 text-muted-foreground hover:text-foreground"><Pencil size={14} /></button>
-                            <button onClick={() => deleteCategory(cat.id)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
-                          </div>
-                        </div>
-                        {subs.length > 0 && (
-                          <div className="ml-6 border-l border-foreground/[0.08]">
-                            {subs.map((sub) => (
-                              <div key={sub.id} className="flex items-center justify-between p-3 pl-4 border-b border-foreground/[0.08] last:border-b-0">
-                                <div className="flex items-center gap-2">
-                                  <ChevronRight size={12} className="text-muted-foreground flex-shrink-0" />
-                                  <div>
-                                    <p className="font-sans text-sm text-foreground">{sub.name}</p>
-                                    <p className="font-mono text-[10px] text-muted-foreground">{sub.slug}</p>
-                                  </div>
-                                </div>
-                                <div className="flex gap-1">
-                                  <button onClick={() => editCategory(sub)} className="p-2 text-muted-foreground hover:text-foreground"><Pencil size={14} /></button>
-                                  <button onClick={() => deleteCategory(sub.id)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  <CategoryTree categories={categories} parentId={null} depth={0} onEdit={editCategory} onDelete={deleteCategory} />
                 </div>
               </>
             ) : (

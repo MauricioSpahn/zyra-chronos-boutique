@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, X, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { Search, X, Loader2, SlidersHorizontal, ChevronRight, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import AnnouncementBar from "@/components/AnnouncementBar";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import ProductCard from "@/components/ProductCard";
 import { usePageTracking } from "@/hooks/usePageTracking";
@@ -23,6 +22,90 @@ interface DBCategory {
   id: string; name: string; slug: string; parent_id: string | null;
 }
 
+// Recursive category tree filter component
+const CategoryTreeFilter = ({
+  categories,
+  parentId,
+  depth,
+  activeCategory,
+  expandedIds,
+  onSelect,
+  onToggleExpand,
+}: {
+  categories: DBCategory[];
+  parentId: string | null;
+  depth: number;
+  activeCategory: string | null;
+  expandedIds: Set<string>;
+  onSelect: (id: string | null) => void;
+  onToggleExpand: (id: string) => void;
+}) => {
+  const children = categories.filter(c => c.parent_id === parentId);
+  if (children.length === 0) return null;
+
+  return (
+    <div className={depth > 0 ? "border-l border-foreground/[0.06]" : ""}>
+      {children.map(cat => {
+        const hasChildren = categories.some(c => c.parent_id === cat.id);
+        const isActive = activeCategory === cat.id;
+        const isExpanded = expandedIds.has(cat.id);
+        const isAncestorOfActive = activeCategory ? isAncestor(categories, cat.id, activeCategory) : false;
+
+        return (
+          <div key={cat.id}>
+            <div className="flex items-center">
+              <button
+                onClick={() => onSelect(cat.id)}
+                className={`flex-1 text-left py-2.5 font-mono text-[11px] uppercase tracking-[0.15em] transition-colors ${
+                  isActive ? "text-accent" : isAncestorOfActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+                style={{ paddingLeft: `${1 + depth * 1}rem` }}
+              >
+                {cat.name}
+              </button>
+              {hasChildren && (
+                <button
+                  onClick={() => onToggleExpand(cat.id)}
+                  className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              )}
+            </div>
+            {hasChildren && isExpanded && (
+              <CategoryTreeFilter
+                categories={categories}
+                parentId={cat.id}
+                depth={depth + 1}
+                activeCategory={activeCategory}
+                expandedIds={expandedIds}
+                onSelect={onSelect}
+                onToggleExpand={onToggleExpand}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Check if `ancestorId` is an ancestor of `childId`
+function isAncestor(categories: DBCategory[], ancestorId: string, childId: string): boolean {
+  let current = categories.find(c => c.id === childId);
+  while (current?.parent_id) {
+    if (current.parent_id === ancestorId) return true;
+    current = categories.find(c => c.id === current!.parent_id);
+  }
+  return false;
+}
+
+// Get all descendant IDs recursively
+function getDescendantIds(categories: DBCategory[], parentId: string): string[] {
+  const children = categories.filter(c => c.parent_id === parentId);
+  return children.reduce<string[]>((acc, c) => [...acc, c.id, ...getDescendantIds(categories, c.id)], []);
+}
+
 const Collection = () => {
   usePageTracking();
   const isMobile = useIsMobile();
@@ -32,6 +115,7 @@ const Collection = () => {
   const [categories, setCategories] = useState<DBCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,8 +130,7 @@ const Collection = () => {
     fetchData();
   }, []);
 
-  const parentCategories = categories.filter(c => !c.parent_id);
-  const getSubcategories = (parentId: string) => categories.filter(c => c.parent_id === parentId);
+  const rootCategories = useMemo(() => categories.filter(c => !c.parent_id), [categories]);
 
   const activeCategoryName = useMemo(() => {
     if (!activeCategory) return "Todas";
@@ -65,8 +148,7 @@ const Collection = () => {
       );
     }
     if (activeCategory) {
-      const subcatIds = categories.filter(c => c.parent_id === activeCategory).map(c => c.id);
-      const allIds = [activeCategory, ...subcatIds];
+      const allIds = [activeCategory, ...getDescendantIds(categories, activeCategory)];
       result = result.filter(p => p.category_id && allIds.includes(p.category_id));
     }
     return result;
@@ -74,11 +156,34 @@ const Collection = () => {
 
   const handleSelectCategory = useCallback((id: string | null) => {
     setActiveCategory(id);
+    // Auto-expand ancestors of selected category
+    if (id) {
+      const newExpanded = new Set(expandedIds);
+      let current = categories.find(c => c.id === id);
+      while (current?.parent_id) {
+        newExpanded.add(current.parent_id);
+        current = categories.find(c => c.id === current!.parent_id);
+      }
+      // Also expand the selected category itself if it has children
+      if (categories.some(c => c.parent_id === id)) {
+        newExpanded.add(id);
+      }
+      setExpandedIds(newExpanded);
+    }
     setFilterOpen(false);
+  }, [expandedIds, categories]);
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }, []);
 
   const FilterContent = () => (
-    <div className="space-y-1">
+    <div className="space-y-0">
       <button
         onClick={() => handleSelectCategory(null)}
         className={`w-full text-left px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] border-b border-foreground/[0.04] transition-colors ${
@@ -87,48 +192,22 @@ const Collection = () => {
       >
         Todos los productos
       </button>
-      {parentCategories.map((cat) => {
-        const subs = getSubcategories(cat.id);
-        const isActive = activeCategory === cat.id;
-        const hasActiveSub = subs.some(s => s.id === activeCategory);
-        return (
-          <div key={cat.id}>
-            <button
-              onClick={() => handleSelectCategory(cat.id)}
-              className={`w-full text-left px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] border-b border-foreground/[0.04] transition-colors flex items-center justify-between ${
-                isActive || hasActiveSub ? "text-accent bg-accent/5" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
-            >
-              <span>{cat.name}</span>
-              {subs.length > 0 && <ChevronRight size={12} className={isActive || hasActiveSub ? "text-accent" : ""} />}
-            </button>
-            {subs.length > 0 && (isActive || hasActiveSub) && (
-              <div className="bg-secondary/50">
-                {subs.map(sub => (
-                  <button
-                    key={sub.id}
-                    onClick={() => handleSelectCategory(sub.id)}
-                    className={`w-full text-left pl-8 pr-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.15em] border-b border-foreground/[0.04] transition-colors ${
-                      activeCategory === sub.id ? "text-accent" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {sub.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <CategoryTreeFilter
+        categories={categories}
+        parentId={null}
+        depth={0}
+        activeCategory={activeCategory}
+        expandedIds={expandedIds}
+        onSelect={handleSelectCategory}
+        onToggleExpand={toggleExpand}
+      />
     </div>
   );
 
   return (
     <div className="min-h-screen bg-background">
-      <AnnouncementBar />
       <Header />
       <main className="pt-24">
-        {/* Top bar: title + search + filter toggle */}
         <section className="px-4 md:px-12 pt-8 pb-4">
           <div className="flex items-center justify-between mb-6">
             <h1 className="font-mono text-xl md:text-2xl tracking-[0.25em] text-foreground uppercase">
@@ -140,7 +219,6 @@ const Collection = () => {
           </div>
 
           <div className="flex gap-3 items-center">
-            {/* Search */}
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -157,16 +235,20 @@ const Collection = () => {
               )}
             </div>
 
-            {/* Mobile filter button */}
-            {isMobile && categories.length > 0 && (
+            {/* Filter button (mobile + desktop) */}
+            {categories.length > 0 && (
               <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
                 <SheetTrigger asChild>
-                  <button className="h-10 px-4 bg-secondary border border-foreground/[0.08] flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                  <button className={`h-10 px-4 bg-secondary border border-foreground/[0.08] flex items-center gap-2 transition-colors shrink-0 ${
+                    activeCategory ? "text-accent border-accent/30" : "text-muted-foreground hover:text-foreground"
+                  }`}>
                     <SlidersHorizontal size={14} />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.15em]">Filtrar</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
+                      {isMobile ? "Filtrar" : "Categorías"}
+                    </span>
                   </button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-[280px] bg-background border-foreground/[0.08] p-0">
+                <SheetContent side="left" className="w-[300px] bg-background border-foreground/[0.08] p-0">
                   <SheetHeader className="px-4 py-4 border-b border-foreground/[0.08]">
                     <SheetTitle className="font-mono text-xs uppercase tracking-[0.25em] text-foreground">Categorías</SheetTitle>
                   </SheetHeader>
@@ -178,8 +260,8 @@ const Collection = () => {
             )}
           </div>
 
-          {/* Active filter chip on mobile */}
-          {isMobile && activeCategory && (
+          {/* Active filter chip */}
+          {activeCategory && (
             <div className="mt-3 flex items-center gap-2">
               <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.1em]">Filtro:</span>
               <button
@@ -191,55 +273,8 @@ const Collection = () => {
               </button>
             </div>
           )}
-
-          {/* Desktop category pills */}
-          {!isMobile && categories.length > 0 && (
-            <div className="flex gap-2 flex-wrap mt-4">
-              <button
-                onClick={() => setActiveCategory(null)}
-                className={`h-8 px-4 font-mono text-[10px] uppercase tracking-[0.2em] border transition-colors duration-150 ${
-                  !activeCategory ? "border-accent text-accent bg-accent/5" : "border-foreground/[0.08] text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                }`}
-              >
-                Todas
-              </button>
-              {parentCategories.map((cat) => {
-                const subs = getSubcategories(cat.id);
-                const isActive = activeCategory === cat.id;
-                const hasActiveSub = subs.some(s => s.id === activeCategory);
-                return (
-                  <div key={cat.id} className="relative group">
-                    <button
-                      onClick={() => setActiveCategory(cat.id)}
-                      className={`h-8 px-4 font-mono text-[10px] uppercase tracking-[0.2em] border transition-colors duration-150 ${
-                        isActive || hasActiveSub ? "border-accent text-accent bg-accent/5" : "border-foreground/[0.08] text-muted-foreground hover:text-foreground hover:border-foreground/20"
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
-                    {subs.length > 0 && (
-                      <div className="absolute top-full left-0 mt-1 bg-background border border-foreground/[0.08] py-1 min-w-[160px] hidden group-hover:block z-10">
-                        {subs.map(sub => (
-                          <button
-                            key={sub.id}
-                            onClick={() => setActiveCategory(sub.id)}
-                            className={`w-full text-left px-4 py-2 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
-                              activeCategory === sub.id ? "text-accent" : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            {sub.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </section>
 
-        {/* Products grid */}
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 size={24} className="animate-spin text-muted-foreground" />

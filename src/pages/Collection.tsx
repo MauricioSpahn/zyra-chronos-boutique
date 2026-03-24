@@ -110,8 +110,9 @@ function getDescendantIds(categories: DBCategory[], parentId: string): string[] 
 const Collection = () => {
   usePageTracking();
   const isMobile = useIsMobile();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(searchParams.get("cat"));
   const [products, setProducts] = useState<DBProduct[]>([]);
   const [categories, setCategories] = useState<DBCategory[]>([]);
   const [loading, setLoading] = useState(true);

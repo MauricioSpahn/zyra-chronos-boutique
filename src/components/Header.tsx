@@ -60,7 +60,7 @@ const Header = () => {
                 onClick={() => setMobileMenuOpen(false)}
                 className="block font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors"
               >
-                Colección
+                Productos
               </Link>
               <Link
                 to="/contacto"

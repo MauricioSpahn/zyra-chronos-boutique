@@ -1,10 +1,14 @@
-import { ShoppingBag, Menu, X } from "lucide-react";
+import { ShoppingBag, Menu, X, ChevronDown, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import CartDrawer from "./CartDrawer";
 import AnnouncementBar from "./AnnouncementBar";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
+
+interface MobileCategory {
+  id: string; name: string; slug: string; parent_id: string | null;
+}
 
 const Header = () => {
   const [cartOpen, setCartOpen] = useState(false);

@@ -15,6 +15,47 @@ import AdminFooter from "@/components/admin/AdminFooter";
 import AdminCustomPages from "@/components/admin/AdminCustomPages";
 
 interface Category { id: string; name: string; slug: string; parent_id: string | null; }
+
+// Recursive category tree component for admin view
+const CategoryTree = ({ categories, parentId, depth, onEdit, onDelete }: {
+  categories: Category[];
+  parentId: string | null;
+  depth: number;
+  onEdit: (cat: Category) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const children = categories.filter(c => c.parent_id === parentId);
+  if (children.length === 0) return null;
+  return (
+    <>
+      {children.map(cat => (
+        <div key={cat.id}>
+          <div
+            className="flex items-center justify-between p-3 md:p-4 border border-foreground/[0.08]"
+            style={{ marginLeft: `${depth * 1.5}rem` }}
+          >
+            <div className="flex items-center gap-2">
+              {depth === 0 ? (
+                <FolderOpen size={14} className="text-accent flex-shrink-0" />
+              ) : (
+                <ChevronRight size={12} className="text-muted-foreground flex-shrink-0" />
+              )}
+              <div>
+                <p className="font-sans text-sm text-foreground">{cat.name}</p>
+                <p className="font-mono text-[10px] text-muted-foreground">{cat.slug}</p>
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <button onClick={() => onEdit(cat)} className="p-2 text-muted-foreground hover:text-foreground"><Pencil size={14} /></button>
+              <button onClick={() => onDelete(cat.id)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
+            </div>
+          </div>
+          <CategoryTree categories={categories} parentId={cat.id} depth={depth + 1} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+      ))}
+    </>
+  );
+};
 interface Product {
   id: string; name: string; slug: string; price: number; reference: string;
   units_available: number; category_id: string | null; image_url: string;

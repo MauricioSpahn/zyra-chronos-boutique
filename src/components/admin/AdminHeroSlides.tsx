@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Trash2, GripVertical, Film, Image, X } from "lucide-react";
+import { Upload, Trash2, GripVertical, Film, Image, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface HeroSlide {
@@ -26,8 +26,10 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
   const [announcementText, setAnnouncementText] = useState("ENVÍOS SIN CARGO A TODO EL PAÍS");
   const [collectionTitle, setCollectionTitle] = useState("COLECCIÓN");
   const [collectionDesc, setCollectionDesc] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchSlides();
@@ -53,6 +55,7 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         if (row.key === "brand") {
           setBrandTagline(val.tagline || "");
           setBrandFooter(val.footer_text || "");
+          setLogoUrl(val.logo_url || "");
         }
         if (row.key === "announcement_bar") {
           setAnnouncementText(val.text || "");
@@ -121,7 +124,7 @@ const AdminHeroSlides = ({ inputClass }: Props) => {
         updated_at: new Date().toISOString(),
       }).eq("key", "hero"),
       supabase.from("site_settings").update({
-        value: { tagline: brandTagline, footer_text: brandFooter } as any,
+        value: { tagline: brandTagline, footer_text: brandFooter, logo_url: logoUrl } as any,
         updated_at: new Date().toISOString(),
       }).eq("key", "brand"),
       supabase.from("site_settings").upsert({

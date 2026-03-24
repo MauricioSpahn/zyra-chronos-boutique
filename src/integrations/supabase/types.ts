@@ -160,6 +160,42 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_pages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          published: boolean
+          show_in_nav: boolean
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          published?: boolean
+          show_in_nav?: boolean
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          published?: boolean
+          show_in_nav?: boolean
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hero_slides: {
         Row: {
           created_at: string

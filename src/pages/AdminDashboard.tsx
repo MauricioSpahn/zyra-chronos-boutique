@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Package, FolderOpen, Plus, Trash2, Pencil, Home, ShoppingBag, Menu, BarChart3, Upload, X, Image, Settings, History, Phone, ChevronRight } from "lucide-react";
+import { LogOut, Package, FolderOpen, Plus, Trash2, Pencil, Home, ShoppingBag, Menu, BarChart3, Upload, X, Image, Settings, History, Phone, ChevronRight, Truck } from "lucide-react";
 import { toast } from "sonner";
 import AdminHeroSlides from "@/components/admin/AdminHeroSlides";
 import AdminAnalytics from "@/components/admin/AdminAnalytics";
@@ -9,6 +9,7 @@ import AdminOrdersDB from "@/components/admin/AdminOrdersDB";
 import AdminAccount from "@/components/admin/AdminAccount";
 import AdminAuditLog from "@/components/admin/AdminAuditLog";
 import AdminContact from "@/components/admin/AdminContact";
+import AdminShipping from "@/components/admin/AdminShipping";
 
 interface Category { id: string; name: string; slug: string; parent_id: string | null; }
 interface Product {
@@ -18,7 +19,7 @@ interface Product {
   currency: string;
 }
 
-type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact";
+type Tab = "analytics" | "products" | "categories" | "orders" | "homepage" | "account" | "audit" | "contact" | "shipping";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -251,6 +252,7 @@ const AdminDashboard = () => {
     { key: "categories" as Tab, icon: FolderOpen, label: "Categorías" },
     { key: "homepage" as Tab, icon: Home, label: "Inicio" },
     { key: "contact" as Tab, icon: Phone, label: "Contacto" },
+    { key: "shipping" as Tab, icon: Truck, label: "Envío" },
     { key: "audit" as Tab, icon: History, label: "Registro" },
     { key: "account" as Tab, icon: Settings, label: "Cuenta" },
   ];
@@ -300,6 +302,7 @@ const AdminDashboard = () => {
         {tab === "orders" && <AdminOrdersDB inputClass={inputClass} adminUserId={adminUserId} adminName={adminName} onAuditLog={logAudit} />}
         {tab === "homepage" && <AdminHeroSlides inputClass={inputClass} />}
         {tab === "contact" && <AdminContact inputClass={inputClass} onAuditLog={logAudit} />}
+        {tab === "shipping" && <AdminShipping inputClass={inputClass} onAuditLog={logAudit} />}
         {tab === "audit" && <AdminAuditLog />}
         {tab === "account" && <AdminAccount inputClass={inputClass} adminUserId={adminUserId} onAuditLog={logAudit} />}
 

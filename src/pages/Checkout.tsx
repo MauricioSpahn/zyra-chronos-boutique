@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, CreditCard, Wallet, Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, CreditCard, Wallet, Loader2, CheckCircle, XCircle, Clock, Truck } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import AnnouncementBar from "@/components/AnnouncementBar";
+import { ARGENTINA_PROVINCES, DEFAULT_SHIPPING_RATES, ShippingRate, calculateShipping } from "@/data/argentinaData";
 
 interface ShippingForm {
   firstName: string;
@@ -27,7 +28,7 @@ interface ShippingForm {
 const INITIAL_FORM: ShippingForm = {
   firstName: "", lastName: "", email: "", phone: "",
   addressLine1: "", addressLine2: "", city: "", state: "",
-  postalCode: "", country: "MX",
+  postalCode: "", country: "AR",
 };
 
 const generateOrderNumber = () => {
@@ -40,9 +41,34 @@ const Checkout = () => {
   const [searchParams] = useSearchParams();
   const [form, setForm] = useState<ShippingForm>(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>(DEFAULT_SHIPPING_RATES);
+  const [freeShippingMin, setFreeShippingMin] = useState(0);
 
-  const shippingCost = totalPrice >= 5000 ? 0 : 350;
-  const total = totalPrice + shippingCost;
+  // Load shipping rates from DB
+  useEffect(() => {
+    const loadRates = async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "shipping_rates")
+        .maybeSingle();
+      if (data?.value) {
+        const val = data.value as any;
+        if (val.rates) setShippingRates(val.rates);
+        if (val.freeShippingMin !== undefined) setFreeShippingMin(val.freeShippingMin);
+      }
+    };
+    loadRates();
+  }, []);
+
+  // Calculate shipping cost
+  const shippingCost = useMemo(() => {
+    if (freeShippingMin > 0 && totalPrice >= freeShippingMin) return 0;
+    if (!form.postalCode.trim()) return null;
+    return calculateShipping(form.postalCode, shippingRates);
+  }, [form.postalCode, shippingRates, totalPrice, freeShippingMin]);
+
+  const total = totalPrice + (shippingCost ?? 0);
 
   const updateField = (field: keyof ShippingForm, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -50,7 +76,7 @@ const Checkout = () => {
   const isFormValid =
     form.firstName.trim() && form.lastName.trim() && form.email.trim() &&
     form.addressLine1.trim() && form.city.trim() && form.state.trim() &&
-    form.postalCode.trim() && items.length > 0;
+    form.postalCode.trim() && shippingCost !== null && items.length > 0;
 
   // Handle MP return
   const returnStatus = searchParams.get("status");
@@ -58,7 +84,6 @@ const Checkout = () => {
   const paymentId = searchParams.get("payment_id") || searchParams.get("collection_id");
   const sessionId = searchParams.get("session_id");
 
-  // Confirm payment on return
   const [confirming, setConfirming] = useState(false);
   const [confirmResult, setConfirmResult] = useState<{ approved: boolean; status: string; order_number: string } | null>(null);
 
@@ -157,8 +182,8 @@ const Checkout = () => {
     setLoading(true);
     try {
       const orderNum = generateOrderNumber();
+      const finalShipping = shippingCost ?? 0;
 
-      // 1. Create checkout session (NOT an order yet)
       const { data: session, error: sessionError } = await supabase
         .from("checkout_sessions")
         .insert({
@@ -179,12 +204,12 @@ const Checkout = () => {
             name: item.name,
             image: item.image,
             price: item.price,
-              currency: item.currency || "ARS",
+            currency: item.currency || "ARS",
             quantity: item.quantity,
           })),
           subtotal: totalPrice,
-          shipping_cost: shippingCost,
-          total,
+          shipping_cost: finalShipping,
+          total: totalPrice + finalShipping,
         })
         .select()
         .single();
@@ -194,7 +219,6 @@ const Checkout = () => {
         throw new Error(sessionError?.message || "Error creando sesión");
       }
 
-      // 2. Create Mercado Pago preference
       const currentOrigin = window.location.origin;
       const { data: mpData, error: mpError } = await supabase.functions.invoke(
         "create-mp-preference",
@@ -208,6 +232,7 @@ const Checkout = () => {
               unit_price: item.price,
               currency_id: item.currency || "ARS",
             })),
+            shipping_cost: finalShipping,
             payer: {
               email: form.email.trim(),
               first_name: form.firstName.trim(),
@@ -237,6 +262,8 @@ const Checkout = () => {
       setLoading(false);
     }
   };
+
+  const selectClass = "w-full h-11 md:h-12 px-3 bg-secondary border border-foreground/[0.08] font-sans text-sm text-foreground focus:outline-none focus:border-accent transition-colors rounded-none appearance-none";
 
   return (
     <div className="min-h-screen bg-background">
@@ -282,30 +309,86 @@ const Checkout = () => {
 
           <Separator className="bg-foreground/[0.08]" />
 
-          {/* Shipping */}
+          {/* Shipping Address */}
           <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}>
             <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-4 md:mb-6">Dirección de envío</h2>
             <div className="space-y-3 md:space-y-4">
+              {/* Country */}
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">País *</Label>
+                <select
+                  value={form.country}
+                  onChange={(e) => updateField("country", e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="AR">Argentina</option>
+                </select>
+              </div>
+
+              {/* Province */}
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Provincia *</Label>
+                <select
+                  value={form.state}
+                  onChange={(e) => {
+                    updateField("state", e.target.value);
+                    updateField("city", "");
+                  }}
+                  className={selectClass}
+                  required
+                >
+                  <option value="">Seleccioná tu provincia</option>
+                  {ARGENTINA_PROVINCES.map((prov) => (
+                    <option key={prov} value={prov}>{prov}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Address */}
               <div className="space-y-1.5">
                 <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Dirección *</Label>
                 <Input value={form.addressLine1} onChange={(e) => updateField("addressLine1", e.target.value)} placeholder="Calle y número" className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-11 md:h-12 text-sm" required />
               </div>
               <div className="space-y-1.5">
-                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Apartamento, suite, etc.</Label>
+                <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Piso / Depto (opcional)</Label>
                 <Input value={form.addressLine2} onChange={(e) => updateField("addressLine2", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-11 md:h-12 text-sm" />
               </div>
-              <div className="grid grid-cols-3 gap-2 md:gap-4">
+
+              {/* City + CP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-1.5">
-                  <Label className="font-mono text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Ciudad *</Label>
-                  <Input value={form.city} onChange={(e) => updateField("city", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-11 md:h-12 text-sm" required />
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Localidad *</Label>
+                  <Input
+                    value={form.city}
+                    onChange={(e) => updateField("city", e.target.value)}
+                    placeholder="Tu localidad"
+                    className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-11 md:h-12 text-sm"
+                    required
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="font-mono text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Estado *</Label>
-                  <Input value={form.state} onChange={(e) => updateField("state", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-11 md:h-12 text-sm" required />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="font-mono text-[9px] md:text-[10px] uppercase tracking-[0.2em] text-muted-foreground">C.P. *</Label>
-                  <Input value={form.postalCode} onChange={(e) => updateField("postalCode", e.target.value)} className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-11 md:h-12 text-sm" required />
+                  <Label className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Código postal *</Label>
+                  <Input
+                    value={form.postalCode}
+                    onChange={(e) => updateField("postalCode", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    placeholder="Ej: 1425"
+                    maxLength={4}
+                    className="bg-secondary border-foreground/[0.08] text-foreground placeholder:text-muted-foreground/50 rounded-none h-11 md:h-12 text-sm"
+                    required
+                  />
+                  {form.postalCode.length >= 4 && shippingCost === null && (
+                    <p className="font-mono text-[10px] text-destructive mt-1">
+                      Código postal fuera de zona de cobertura
+                    </p>
+                  )}
+                  {form.postalCode.length >= 4 && shippingCost !== null && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Truck size={12} className="text-accent" />
+                      <p className="font-mono text-[10px] text-accent">
+                        {shippingCost === 0 ? "¡Envío gratis!" : `Envío: $${shippingCost.toLocaleString()}`}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -362,11 +445,15 @@ const Checkout = () => {
               <div className="flex justify-between">
                 <span className="font-sans text-sm text-muted-foreground">Envío</span>
                 <span className="font-mono text-sm tabular-nums text-foreground">
-                  {shippingCost === 0 ? "Gratis" : `$${shippingCost.toLocaleString()}`}
+                  {shippingCost === null
+                    ? "Ingresá tu CP"
+                    : shippingCost === 0
+                    ? "Gratis"
+                    : `$${shippingCost.toLocaleString()}`}
                 </span>
               </div>
-              {shippingCost === 0 && (
-                <p className="font-mono text-[10px] text-accent">Envío gratis en pedidos +$5,000</p>
+              {shippingCost === 0 && freeShippingMin > 0 && (
+                <p className="font-mono text-[10px] text-accent">Envío gratis en pedidos +${freeShippingMin.toLocaleString()}</p>
               )}
             </div>
 
@@ -393,7 +480,7 @@ const Checkout = () => {
             </button>
 
             <p className="mt-3 md:mt-4 font-sans text-[10px] text-muted-foreground/60 text-center leading-relaxed">
-              Al confirmar, aceptas nuestros términos y condiciones. Tu información se maneja de forma segura.
+              Al confirmar, aceptás nuestros términos y condiciones. Tu información se maneja de forma segura.
             </p>
           </motion.div>
         </div>

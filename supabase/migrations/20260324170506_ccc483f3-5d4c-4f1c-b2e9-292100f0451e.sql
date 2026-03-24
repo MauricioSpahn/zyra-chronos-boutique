@@ -1,0 +1,2 @@
+CREATE POLICY "Anyone can read order by order_number" ON public.orders FOR SELECT TO anon USING (true);
+CREATE POLICY "Anyone can read order items for receipt" ON public.order_items FOR SELECT TO anon USING (true);

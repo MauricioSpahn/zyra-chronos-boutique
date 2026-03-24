@@ -1,6 +1,30 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Footer = () => {
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleNewsletter = async () => {
+    if (!email.trim() || !email.includes("@")) {
+      toast.error("Ingresá un email válido");
+      return;
+    }
+    setSending(true);
+    try {
+      await supabase.functions.invoke("send-order-email", {
+        body: { type: "newsletter", email: email.trim() },
+      });
+      toast.success("¡Te suscribiste exitosamente!");
+      setEmail("");
+    } catch {
+      toast.error("Error al suscribirte. Intentá de nuevo.");
+    }
+    setSending(false);
+  };
+
   return (
     <footer className="border-t border-foreground/[0.08] px-6 md:px-12 py-16">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
@@ -19,7 +43,7 @@ const Footer = () => {
             Navegación
           </span>
           <ul className="mt-4 space-y-3">
-            <li><Link to="/" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Colección</Link></li>
+            <li><Link to="/coleccion" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Colección</Link></li>
             <li><Link to="/contacto" className="font-sans text-sm text-muted-foreground hover:text-foreground transition-colors duration-150">Contacto</Link></li>
           </ul>
         </div>
@@ -32,10 +56,17 @@ const Footer = () => {
             <input
               type="email"
               placeholder="tu@email.com"
-              className="flex-1 bg-transparent border-b border-foreground/[0.08] py-3 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleNewsletter()}
+              className="flex-1 min-w-0 bg-transparent border-b border-foreground/[0.08] py-3 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
             />
-            <button className="ml-4 h-12 px-6 bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150">
-              Enviar
+            <button
+              onClick={handleNewsletter}
+              disabled={sending}
+              className="ml-4 h-12 px-6 bg-foreground text-background font-sans font-medium uppercase tracking-[0.2em] text-[10px] hover:bg-accent hover:text-accent-foreground transition-colors duration-150 disabled:opacity-50 flex-shrink-0"
+            >
+              {sending ? "..." : "Enviar"}
             </button>
           </div>
         </div>

@@ -104,6 +104,44 @@ Deno.serve(async (req) => {
           subtotal: item.price * item.quantity,
         }));
         await supabaseAdmin.from("order_items").insert(items);
+
+        // Send confirmation email
+        try {
+          const emailPayload = {
+            type: "purchase",
+            order_number: session.order_number,
+            email: customer.email,
+            first_name: customer.firstName,
+            last_name: customer.lastName,
+            items: (session.items as any[]).map((item: any) => ({
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              image: item.image || null,
+            })),
+            subtotal: session.subtotal,
+            shipping_cost: session.shipping_cost,
+            total: session.total,
+            address: customer.addressLine1,
+            city: customer.city,
+            state: customer.state,
+            postal_code: customer.postalCode,
+          };
+
+          await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-order-email`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+              },
+              body: JSON.stringify(emailPayload),
+            }
+          );
+        } catch (emailErr) {
+          console.error("Email send error (non-blocking):", emailErr);
+        }
       }
     }
 

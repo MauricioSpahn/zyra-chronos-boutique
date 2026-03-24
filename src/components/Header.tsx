@@ -22,7 +22,7 @@ const Header = () => {
 
             <nav className="hidden md:flex items-center gap-10">
               <Link to="/coleccion" className="font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors duration-150">
-                Colección
+                Productos
               </Link>
               <Link to="/contacto" className="font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors duration-150">
                 Contacto
@@ -60,7 +60,7 @@ const Header = () => {
                 onClick={() => setMobileMenuOpen(false)}
                 className="block font-sans text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors"
               >
-                Colección
+                Productos
               </Link>
               <Link
                 to="/contacto"
